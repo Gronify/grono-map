@@ -25,6 +25,19 @@ export class CommentMapper {
     return domainEntity;
   }
 
+  static toDomainWithoutMarker(raw: CommentEntity): Comment {
+    const domainEntity = new Comment();
+    if (raw.user) {
+      domainEntity.user = UserMapper.toDomain(raw.user);
+    }
+    domainEntity.text = raw.text;
+    domainEntity.id = raw.id;
+    domainEntity.createdAt = raw.createdAt;
+    domainEntity.updatedAt = raw.updatedAt;
+
+    return domainEntity;
+  }
+
   static toPersistence(domainEntity: Comment): CommentEntity {
     const persistenceEntity = new CommentEntity();
     if (domainEntity.marker) {

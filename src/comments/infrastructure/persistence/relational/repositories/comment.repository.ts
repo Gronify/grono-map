@@ -52,6 +52,24 @@ export class CommentRelationalRepository implements CommentRepository {
     return entities.map((entity) => CommentMapper.toDomain(entity));
   }
 
+  async findByMarkerId(markerId: string): Promise<Comment[]> {
+    const entities = await this.commentRepository.find({
+      where: {
+        marker: {
+          id: markerId,
+        },
+      },
+      relations: ['user'],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    return entities.map((entity) =>
+      CommentMapper.toDomainWithoutMarker(entity),
+    );
+  }
+
   async update(id: Comment['id'], payload: Partial<Comment>): Promise<Comment> {
     const entity = await this.commentRepository.findOne({
       where: { id },

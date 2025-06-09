@@ -18,6 +18,8 @@ export abstract class CommentRepository {
 
   abstract findByIds(ids: Comment['id'][]): Promise<Comment[]>;
 
+  abstract findByMarkerId(markerId: string): Promise<Comment[]>;
+
   abstract update(
     id: Comment['id'],
     payload: DeepPartial<Comment>,

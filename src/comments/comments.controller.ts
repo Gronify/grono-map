@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  Request,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -27,6 +28,10 @@ import {
 } from '../utils/dto/infinity-pagination-response.dto';
 import { infinityPagination } from '../utils/infinity-pagination';
 import { FindAllCommentsDto } from './dto/find-all-comments.dto';
+import { Roles } from '../roles/roles.decorator';
+import { RoleEnum } from '../roles/roles.enum';
+import { RolesGuard } from '../roles/roles.guard';
+import { CommentWithoutMarkerResponseDto } from './dto/comment-without-marker.dto';
 
 @ApiTags('Comments')
 @ApiBearerAuth()
@@ -42,8 +47,8 @@ export class CommentsController {
   @ApiCreatedResponse({
     type: Comment,
   })
-  create(@Body() createCommentDto: CreateCommentDto) {
-    return this.commentsService.create(createCommentDto);
+  create(@Body() createCommentDto: CreateCommentDto, @Request() request) {
+    return this.commentsService.create(createCommentDto, request.user);
   }
 
   @Get()
@@ -70,6 +75,20 @@ export class CommentsController {
     );
   }
 
+  @Get('by-marker/:markerId')
+  @UseGuards()
+  @ApiParam({
+    name: 'markerId',
+    type: String,
+    required: true,
+  })
+  @ApiOkResponse({
+    type: [CommentWithoutMarkerResponseDto],
+  })
+  findByMarkerId(@Param('markerId') markerId: string) {
+    return this.commentsService.findByMarkerId(markerId);
+  }
+
   @Get(':id')
   @ApiParam({
     name: 'id',
@@ -92,6 +111,8 @@ export class CommentsController {
   @ApiOkResponse({
     type: Comment,
   })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(RoleEnum.admin)
   update(@Param('id') id: string, @Body() updateCommentDto: UpdateCommentDto) {
     return this.commentsService.update(id, updateCommentDto);
   }

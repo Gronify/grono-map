@@ -15,6 +15,7 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CommentRepository } from './infrastructure/persistence/comment.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Comment } from './domain/comment';
+import { UserDto } from '../users/dto/user.dto';
 
 @Injectable()
 export class CommentsService {
@@ -27,7 +28,7 @@ export class CommentsService {
     private readonly commentRepository: CommentRepository,
   ) {}
 
-  async create(createCommentDto: CreateCommentDto) {
+  async create(createCommentDto: CreateCommentDto, userDto: UserDto) {
     // Do not remove comment below.
     // <creating-property />
     const markerObject = await this.markerService.findById(
@@ -43,9 +44,7 @@ export class CommentsService {
     }
     const marker = markerObject;
 
-    const userObject = await this.userService.findById(
-      createCommentDto.user.id,
-    );
+    const userObject = await this.userService.findById(userDto.id);
     if (!userObject) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -60,9 +59,7 @@ export class CommentsService {
       // Do not remove comment below.
       // <creating-property-payload />
       marker,
-
       user,
-
       text: createCommentDto.text,
     });
   }
@@ -86,6 +83,10 @@ export class CommentsService {
 
   findByIds(ids: Comment['id'][]) {
     return this.commentRepository.findByIds(ids);
+  }
+
+  findByMarkerId(markerId: string): Promise<Comment[]> {
+    return this.commentRepository.findByMarkerId(markerId);
   }
 
   async update(
