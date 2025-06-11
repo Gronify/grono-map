@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  Request,
 } from '@nestjs/common';
 import { MapQueriesService } from './map-queries.service';
 import { CreateMapQueryDto } from './dto/create-map-query.dto';
@@ -31,6 +32,8 @@ import { Roles } from '../roles/roles.decorator';
 import { RoleEnum } from '../roles/roles.enum';
 import { RolesGuard } from '../roles/roles.guard';
 import { GenerateQueryDto } from './dto/generate-query.dto';
+import { UserDto } from '../users/dto/user.dto';
+import { LlmQueryResultDto } from './dto/llm-query-result.dto';
 
 @ApiTags('Mapqueries')
 @ApiBearerAuth()
@@ -116,7 +119,9 @@ export class MapQueriesController {
 
   @Post('ai/generate-overpass-query')
   @ApiOkResponse({ description: 'Generated Overpass QL query', type: String })
-  async generateOverpassQuery(@Body() body: GenerateQueryDto): Promise<string> {
+  async generateOverpassQuery(
+    @Body() body: GenerateQueryDto,
+  ): Promise<LlmQueryResultDto> {
     return this.mapQueriesService.generateOverpassQuery(
       body.input,
       body.latitude,
@@ -125,12 +130,17 @@ export class MapQueriesController {
     );
   }
 
+  @UseGuards()
   @Post('ai/generate-and-fetch-overpass-query')
   @ApiOkResponse({
     description: 'Generated Overpass QL query and fetch Overpass Data',
   })
-  async generateAndFetch(@Body() body: GenerateQueryDto): Promise<any> {
+  async generateAndFetch(
+    @Body() body: GenerateQueryDto,
+    @Request() request,
+  ): Promise<any> {
     const { input, latitude, longitude, radius } = body;
+    const user: UserDto = request.user;
 
     const overpassQuery = await this.mapQueriesService.generateOverpassQuery(
       input,
@@ -138,7 +148,21 @@ export class MapQueriesController {
       longitude,
       radius,
     );
-    const data = await this.mapQueriesService.fetchOverpassData(overpassQuery);
+    const data = await this.mapQueriesService.fetchOverpassData(
+      overpassQuery.llmResponse,
+    );
+
+    await this.mapQueriesService.create({
+      inputText: input,
+      latitude,
+      longitude,
+      radius,
+      llmResponse: overpassQuery.llmResponse,
+      llmModel: overpassQuery.llmModel,
+      status: overpassQuery.status,
+      duration: overpassQuery.duration,
+      user,
+    });
     return data;
   }
 }

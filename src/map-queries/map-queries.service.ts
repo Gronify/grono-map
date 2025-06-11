@@ -16,6 +16,7 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { ConfigService } from '@nestjs/config';
 import { AllConfigType } from '../config/config.type';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { LlmQueryResultDto } from './dto/llm-query-result.dto';
 @Injectable()
 export class MapQueriesService {
   constructor(
@@ -136,7 +137,7 @@ export class MapQueriesService {
     latitude: number,
     longitude: number,
     radius: number,
-  ): Promise<string> {
+  ): Promise<LlmQueryResultDto> {
     const prompt = ChatPromptTemplate.fromTemplate(`
       You are an assistant that converts natural language instructions into Overpass QL queries. You must respond with a single-line Overpass QL query, without any formatting, code fences, or comments.
 
@@ -155,29 +156,47 @@ export class MapQueriesService {
 
     const chain = prompt.pipe(this.model);
 
-    const response = await chain.invoke({
-      input,
-      latitude,
-      longitude,
-      radius,
-    });
+    const start = Date.now();
+    let content: string = '';
+    let status: 'success' | 'error' = 'success';
 
-    if (typeof response.content === 'string') {
-      return response.content;
+    try {
+      const response = await chain.invoke({
+        input,
+        latitude,
+        longitude,
+        radius,
+      });
+
+      if (typeof response.content === 'string') {
+        content = response.content;
+      } else if (Array.isArray(response.content)) {
+        content = response.content
+          .filter(
+            (item) =>
+              typeof item === 'string' ||
+              (item.type === 'text' && typeof (item as any).text === 'string'),
+          )
+          .map((item) => (typeof item === 'string' ? item : (item as any).text))
+          .join(' ');
+      } else {
+        content = '';
+        status = 'error';
+      }
+    } catch (error) {
+      console.error('LLM query generation failed:', error);
+      content = '';
+      status = 'error';
     }
 
-    if (Array.isArray(response.content)) {
-      return response.content
-        .filter(
-          (item) =>
-            typeof item === 'string' ||
-            (item.type === 'text' && typeof (item as any).text === 'string'),
-        )
-        .map((item) => (typeof item === 'string' ? item : (item as any).text))
-        .join(' ');
-    }
+    const duration = Date.now() - start;
 
-    return '';
+    return {
+      llmResponse: content,
+      llmModel: this.model.model,
+      duration,
+      status,
+    };
   }
 
   async fetchOverpassData(overpassQuery: string): Promise<any> {
