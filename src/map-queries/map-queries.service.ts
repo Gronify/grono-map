@@ -12,14 +12,18 @@ import { UpdateMapQueryDto } from './dto/update-map-query.dto';
 import { MapQueryRepository } from './infrastructure/persistence/map-query.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { MapQuery } from './domain/map-query';
-
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ConfigService } from '@nestjs/config';
+import { AllConfigType } from '../config/config.type';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
 @Injectable()
 export class MapQueriesService {
   constructor(
     private readonly userService: UsersService,
-
     // Dependencies here
     private readonly mapQueryRepository: MapQueryRepository,
+    private configService: ConfigService<AllConfigType>,
+    private model: ChatGoogleGenerativeAI,
   ) {}
 
   async create(createMapQueryDto: CreateMapQueryDto) {
@@ -49,21 +53,13 @@ export class MapQueriesService {
       // Do not remove comment below.
       // <creating-property-payload />
       radius: createMapQueryDto.radius,
-
       longitude: createMapQueryDto.longitude,
-
       latitude: createMapQueryDto.latitude,
-
       inputText: createMapQueryDto.inputText,
-
       llmResponse: createMapQueryDto.llmResponse,
-
       llmModel: createMapQueryDto.llmModel,
-
       status: createMapQueryDto.status,
-
       duration: createMapQueryDto.duration,
-
       user,
     });
   }
@@ -120,26 +116,94 @@ export class MapQueriesService {
       // Do not remove comment below.
       // <updating-property-payload />
       radius: updateMapQueryDto.radius,
-
       longitude: updateMapQueryDto.longitude,
-
       latitude: updateMapQueryDto.latitude,
-
       inputText: updateMapQueryDto.inputText,
-
       llmResponse: updateMapQueryDto.llmResponse,
-
       llmModel: updateMapQueryDto.llmModel,
-
       status: updateMapQueryDto.status,
-
       duration: updateMapQueryDto.duration,
-
       user,
     });
   }
 
   remove(id: MapQuery['id']) {
     return this.mapQueryRepository.remove(id);
+  }
+
+  async generateOverpassQuery(
+    input: string,
+    latitude: number,
+    longitude: number,
+    radius: number,
+  ): Promise<string> {
+    const prompt = ChatPromptTemplate.fromTemplate(`
+      You are an assistant that converts natural language instructions into Overpass QL queries. You must respond with a single-line Overpass QL query, without any formatting, code fences, or comments.
+
+      Use the following fixed location:
+      Latitude: {latitude}
+      Longitude: {longitude}
+      Radius: {radius} meters
+
+      User query:
+      {input}
+
+      Respond ONLY with the Overpass QL query in this format:
+      [out:json];node["key"="value"](around:radius,latitude,longitude);out;
+      No newlines. No explanations. No formatting. No extra characters.
+    `);
+
+    const chain = prompt.pipe(this.model);
+
+    const response = await chain.invoke({
+      input,
+      latitude,
+      longitude,
+      radius,
+    });
+
+    if (typeof response.content === 'string') {
+      return response.content;
+    }
+
+    if (Array.isArray(response.content)) {
+      return response.content
+        .filter(
+          (item) =>
+            typeof item === 'string' ||
+            (item.type === 'text' && typeof (item as any).text === 'string'),
+        )
+        .map((item) => (typeof item === 'string' ? item : (item as any).text))
+        .join(' ');
+    }
+
+    return '';
+  }
+
+  async fetchOverpassData(overpassQuery: string): Promise<any> {
+    const url =
+      'https://overpass-api.de/api/interpreter?data=' +
+      encodeURIComponent(overpassQuery);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Overpass API error: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Overpass API request failed:', error);
+      throw new Error('Failed to fetch data from Overpass API');
+    }
   }
 }

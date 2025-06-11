@@ -37,6 +37,7 @@ import { TagsModule } from './tags/tags.module';
 import { CommentsModule } from './comments/comments.module';
 
 import { MapQueriesModule } from './map-queries/map-queries.module';
+import mapQueryConfig from './map-queries/config/map-query.config';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { MapQueriesModule } from './map-queries/map-queries.module';
         fileConfig,
         facebookConfig,
         googleConfig,
+        mapQueryConfig,
       ],
       envFilePath: ['.env'],
     }),

@@ -30,6 +30,7 @@ import { FindAllMapQueriesDto } from './dto/find-all-map-queries.dto';
 import { Roles } from '../roles/roles.decorator';
 import { RoleEnum } from '../roles/roles.enum';
 import { RolesGuard } from '../roles/roles.guard';
+import { GenerateQueryDto } from './dto/generate-query.dto';
 
 @ApiTags('Mapqueries')
 @ApiBearerAuth()
@@ -111,5 +112,33 @@ export class MapQueriesController {
   })
   remove(@Param('id') id: string) {
     return this.mapQueriesService.remove(id);
+  }
+
+  @Post('ai/generate-overpass-query')
+  @ApiOkResponse({ description: 'Generated Overpass QL query', type: String })
+  async generateOverpassQuery(@Body() body: GenerateQueryDto): Promise<string> {
+    return this.mapQueriesService.generateOverpassQuery(
+      body.input,
+      body.latitude,
+      body.longitude,
+      body.radius,
+    );
+  }
+
+  @Post('ai/generate-and-fetch-overpass-query')
+  @ApiOkResponse({
+    description: 'Generated Overpass QL query and fetch Overpass Data',
+  })
+  async generateAndFetch(@Body() body: GenerateQueryDto): Promise<any> {
+    const { input, latitude, longitude, radius } = body;
+
+    const overpassQuery = await this.mapQueriesService.generateOverpassQuery(
+      input,
+      latitude,
+      longitude,
+      radius,
+    );
+    const data = await this.mapQueriesService.fetchOverpassData(overpassQuery);
+    return data;
   }
 }
