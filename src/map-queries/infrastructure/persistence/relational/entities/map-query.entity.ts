@@ -19,12 +19,6 @@ export class MapQueryEntity extends EntityRelationalHelper {
 
   @Column({
     nullable: true,
-    type: Number,
-  })
-  radius?: number | null;
-
-  @Column({
-    nullable: true,
     type: 'double precision',
   })
   longitude?: number | null;

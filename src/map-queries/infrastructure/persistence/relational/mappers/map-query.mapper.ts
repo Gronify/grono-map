@@ -7,7 +7,6 @@ import { MapQueryEntity } from '../entities/map-query.entity';
 export class MapQueryMapper {
   static toDomain(raw: MapQueryEntity): MapQuery {
     const domainEntity = new MapQuery();
-    domainEntity.radius = raw.radius;
 
     domainEntity.longitude = raw.longitude;
 
@@ -38,7 +37,6 @@ export class MapQueryMapper {
 
   static toPersistence(domainEntity: MapQuery): MapQueryEntity {
     const persistenceEntity = new MapQueryEntity();
-    persistenceEntity.radius = domainEntity.radius;
 
     persistenceEntity.longitude = domainEntity.longitude;
 

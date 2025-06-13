@@ -16,5 +16,5 @@ export class GenerateQueryDto {
 
   @ApiProperty({ example: 1000 })
   @IsNumber()
-  radius: number;
+  radius?: number;
 }

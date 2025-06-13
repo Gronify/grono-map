@@ -53,7 +53,6 @@ export class MapQueriesService {
     return this.mapQueryRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
-      radius: createMapQueryDto.radius,
       longitude: createMapQueryDto.longitude,
       latitude: createMapQueryDto.latitude,
       inputText: createMapQueryDto.inputText,
@@ -116,7 +115,6 @@ export class MapQueriesService {
     return this.mapQueryRepository.update(id, {
       // Do not remove comment below.
       // <updating-property-payload />
-      radius: updateMapQueryDto.radius,
       longitude: updateMapQueryDto.longitude,
       latitude: updateMapQueryDto.latitude,
       inputText: updateMapQueryDto.inputText,

@@ -6,12 +6,6 @@ export class MapQuery {
     type: () => Number,
     nullable: true,
   })
-  radius?: number | null;
-
-  @ApiProperty({
-    type: () => Number,
-    nullable: true,
-  })
   longitude?: number | null;
 
   @ApiProperty({

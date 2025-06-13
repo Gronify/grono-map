@@ -34,11 +34,9 @@ import { RolesGuard } from '../roles/roles.guard';
 import { GenerateQueryDto } from './dto/generate-query.dto';
 import { UserDto } from '../users/dto/user.dto';
 import { LlmQueryResultDto } from './dto/llm-query-result.dto';
+import { OverpassResponseDto } from './dto/overpass-response.dto';
 
 @ApiTags('Mapqueries')
-@ApiBearerAuth()
-@Roles(RoleEnum.admin)
-@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller({
   path: 'map-queries',
   version: '1',
@@ -50,6 +48,9 @@ export class MapQueriesController {
   @ApiCreatedResponse({
     type: MapQuery,
   })
+  @ApiBearerAuth()
+  @Roles(RoleEnum.admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   create(@Body() createMapQueryDto: CreateMapQueryDto) {
     return this.mapQueriesService.create(createMapQueryDto);
   }
@@ -58,6 +59,9 @@ export class MapQueriesController {
   @ApiOkResponse({
     type: InfinityPaginationResponse(MapQuery),
   })
+  @ApiBearerAuth()
+  @Roles(RoleEnum.admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   async findAll(
     @Query() query: FindAllMapQueriesDto,
   ): Promise<InfinityPaginationResponseDto<MapQuery>> {
@@ -87,6 +91,9 @@ export class MapQueriesController {
   @ApiOkResponse({
     type: MapQuery,
   })
+  @ApiBearerAuth()
+  @Roles(RoleEnum.admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   findById(@Param('id') id: string) {
     return this.mapQueriesService.findById(id);
   }
@@ -100,6 +107,9 @@ export class MapQueriesController {
   @ApiOkResponse({
     type: MapQuery,
   })
+  @ApiBearerAuth()
+  @Roles(RoleEnum.admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   update(
     @Param('id') id: string,
     @Body() updateMapQueryDto: UpdateMapQueryDto,
@@ -108,6 +118,9 @@ export class MapQueriesController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @Roles(RoleEnum.admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @ApiParam({
     name: 'id',
     type: String,
@@ -126,14 +139,14 @@ export class MapQueriesController {
       body.input,
       body.latitude,
       body.longitude,
-      body.radius,
+      body.radius ? body.radius : 100,
     );
   }
 
-  @UseGuards()
   @Post('ai/generate-and-fetch-overpass-query')
   @ApiOkResponse({
     description: 'Generated Overpass QL query and fetch Overpass Data',
+    type: OverpassResponseDto,
   })
   async generateAndFetch(
     @Body() body: GenerateQueryDto,
@@ -146,7 +159,7 @@ export class MapQueriesController {
       input,
       latitude,
       longitude,
-      radius,
+      radius ? radius : 100,
     );
     const data = await this.mapQueriesService.fetchOverpassData(
       overpassQuery.llmResponse,
@@ -156,7 +169,6 @@ export class MapQueriesController {
       inputText: input,
       latitude,
       longitude,
-      radius,
       llmResponse: overpassQuery.llmResponse,
       llmModel: overpassQuery.llmModel,
       status: overpassQuery.status,

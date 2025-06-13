@@ -27,14 +27,6 @@ export class CreateMapQueryDto {
   })
   @IsOptional()
   @IsNumber()
-  radius?: number | null;
-
-  @ApiProperty({
-    required: false,
-    type: () => Number,
-  })
-  @IsOptional()
-  @IsNumber()
   longitude?: number | null;
 
   @ApiProperty({

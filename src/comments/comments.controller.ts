@@ -34,8 +34,6 @@ import { RolesGuard } from '../roles/roles.guard';
 import { CommentWithoutMarkerResponseDto } from './dto/comment-without-marker.dto';
 
 @ApiTags('Comments')
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
 @Controller({
   path: 'comments',
   version: '1',
@@ -47,6 +45,8 @@ export class CommentsController {
   @ApiCreatedResponse({
     type: Comment,
   })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   create(@Body() createCommentDto: CreateCommentDto, @Request() request) {
     return this.commentsService.create(createCommentDto, request.user);
   }
@@ -55,6 +55,8 @@ export class CommentsController {
   @ApiOkResponse({
     type: InfinityPaginationResponse(Comment),
   })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   async findAll(
     @Query() query: FindAllCommentsDto,
   ): Promise<InfinityPaginationResponseDto<Comment>> {
@@ -76,7 +78,6 @@ export class CommentsController {
   }
 
   @Get('by-marker/:markerId')
-  @UseGuards()
   @ApiParam({
     name: 'markerId',
     type: String,
@@ -98,6 +99,8 @@ export class CommentsController {
   @ApiOkResponse({
     type: Comment,
   })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   findById(@Param('id') id: string) {
     return this.commentsService.findById(id);
   }
@@ -111,6 +114,7 @@ export class CommentsController {
   @ApiOkResponse({
     type: Comment,
   })
+  @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(RoleEnum.admin)
   update(@Param('id') id: string, @Body() updateCommentDto: UpdateCommentDto) {
@@ -123,6 +127,9 @@ export class CommentsController {
     type: String,
     required: true,
   })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(RoleEnum.admin)
   remove(@Param('id') id: string) {
     return this.commentsService.remove(id);
   }
