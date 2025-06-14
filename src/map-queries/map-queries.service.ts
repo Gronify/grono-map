@@ -6,7 +6,6 @@ import {
   Injectable,
   HttpStatus,
   UnprocessableEntityException,
-  BadRequestException,
 } from '@nestjs/common';
 import { CreateMapQueryDto } from './dto/create-map-query.dto';
 import { UpdateMapQueryDto } from './dto/update-map-query.dto';
@@ -19,15 +18,48 @@ import { AllConfigType } from '../config/config.type';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { LlmQueryResultDto } from './dto/llm-query-result.dto';
 import { OsmElement, OverpassApiResponse } from './dto/osm-marker.dto';
+import { RunnableSequence } from '@langchain/core/runnables';
 @Injectable()
 export class MapQueriesService {
+  private assistantChain;
   constructor(
     private readonly userService: UsersService,
     // Dependencies here
     private readonly mapQueryRepository: MapQueryRepository,
     private configService: ConfigService<AllConfigType>,
     private model: ChatGoogleGenerativeAI,
-  ) {}
+  ) {
+    const prompt = ChatPromptTemplate.fromMessages([
+      [
+        'system',
+        `
+        You are an assistant that converts natural language instructions into Overpass QL queries.
+        Respond ONLY with a single-line Overpass QL query. No explanations, formatting, code blocks, or comments.
+
+        Rules:
+        - If the user query includes a radius, use it. Otherwise, use the fallback radius.
+        - Interpret user intent broadly and map it to relevant Overpass tags.
+          For example:
+            - If user wants to buy food or drinks or etc, include "supermarket", "convenience", "kiosk" or etc
+            - If user wants to relax or be in nature, include "park", "forest", "natural" or etc
+        - Always include all element types: node, way, and relation.
+        - Strictly follow this format:[out:json];(node["key"="value"](around:radius,lat,lon);way["key"="value"](around:radius,lat,lon);relation["key"="value"](around:radius,lat,lon););out;
+        - No extra whitespace. No newlines. Return only the Overpass QL query.
+        `,
+      ],
+      [
+        'user',
+        `
+        Latitude: {latitude}
+        Longitude: {longitude}
+        Fallback radius: {radius} meters
+        User query: {input}
+        `,
+      ],
+    ]);
+
+    this.assistantChain = RunnableSequence.from([prompt, this.model]);
+  }
 
   async create(createMapQueryDto: CreateMapQueryDto) {
     // Do not remove comment below.
@@ -138,37 +170,21 @@ export class MapQueriesService {
     longitude: number,
     radius: number,
   ): Promise<LlmQueryResultDto> {
-    const prompt = ChatPromptTemplate.fromTemplate(`
-      You are an assistant that converts natural language instructions into Overpass QL queries. You must respond with a single-line Overpass QL query, without any formatting, code fences, or comments.
-
-      Use the following fixed location:
-      Latitude: {latitude}
-      Longitude: {longitude}
-      Radius: {radius} meters
-
-      User query:
-      {input}
-
-      Respond ONLY with the Overpass QL query in this format:
-      [out:json];node["key"="value"](around:radius,latitude,longitude);out;
-      No newlines. No explanations. No formatting. No extra characters.
-    `);
-
-    const chain = prompt.pipe(this.model);
-
     const start = Date.now();
-    let content: string = '';
+    let content = '';
     let status: 'success' | 'error' = 'success';
 
     try {
-      const response = await chain.invoke({
+      const response = await this.assistantChain.invoke({
         input,
         latitude,
         longitude,
         radius,
       });
 
-      if (typeof response.content === 'string') {
+      if (typeof response === 'string') {
+        content = response;
+      } else if (typeof response.content === 'string') {
         content = response.content;
       } else if (Array.isArray(response.content)) {
         content = response.content
@@ -192,7 +208,7 @@ export class MapQueriesService {
     const duration = Date.now() - start;
 
     return {
-      llmResponse: content,
+      llmResponse: content.trim(),
       llmModel: this.model.model,
       duration,
       status,
@@ -219,6 +235,7 @@ export class MapQueriesService {
       }
 
       const data = await response.json();
+      data.elements = await this.enrichOverpassElements(data.elements);
       return data;
     } catch (error) {
       console.error('Overpass API request failed:', error);
@@ -242,38 +259,50 @@ export class MapQueriesService {
       },
     });
 
-    if (!response.ok) {
-      throw new BadRequestException(
-        `Overpass API returned error: ${response.status} ${response.statusText}`,
-      );
-    }
-
     const data: OverpassApiResponse = await response.json();
-
-    if (!data.elements || data.elements.length === 0) {
-      throw new BadRequestException(
-        `No OSM element found with type "${type}" and ID "${id}".`,
-      );
-    }
-
     const element = data.elements[0];
-
-    if (
-      !element ||
-      typeof element.lat !== 'number' ||
-      typeof element.lon !== 'number'
-    ) {
-      throw new BadRequestException(
-        `Invalid or incomplete OSM element received from Overpass API.`,
-      );
-    }
 
     return {
       type: element.type,
       id: element.id,
       longitude: element.lon,
       latitude: element.lat,
-      tags: element.tags ?? {},
+      tags: element.tags,
     };
+  }
+
+  private async enrichElementWithCoords(element: any): Promise<any> {
+    if (element.type === 'node') {
+      return element;
+    }
+
+    if (
+      (element.type === 'way' || element.type === 'relation') &&
+      Array.isArray(element.nodes) &&
+      element.nodes.length > 0
+    ) {
+      const firstNodeId = element.nodes[0];
+      try {
+        const firstNode = await this.fetchOsmElement('node', firstNodeId);
+        return {
+          ...element,
+          lat: firstNode.latitude,
+          lon: firstNode.longitude,
+        };
+      } catch (error) {
+        console.error('Failed to fetch first node coordinates:', error);
+        return element;
+      }
+    }
+
+    return element;
+  }
+
+  async enrichOverpassElements(elements: OsmElement[]): Promise<OsmElement[]> {
+    const enriched: OsmElement[] = [];
+    for (const element of elements) {
+      enriched.push(await this.enrichElementWithCoords(element));
+    }
+    return enriched;
   }
 }
