@@ -24,4 +24,9 @@ export abstract class MarkerRepository {
   ): Promise<Marker | null>;
 
   abstract remove(id: Marker['id']): Promise<void>;
+
+  abstract findByOsmIdAndType(
+    osmId: string,
+    osmType: string,
+  ): Promise<NullableType<Marker>>;
 }

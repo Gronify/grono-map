@@ -9,6 +9,8 @@ import {
   UseGuards,
   Query,
   Request,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { MapQueriesService } from './map-queries.service';
 import { CreateMapQueryDto } from './dto/create-map-query.dto';
@@ -35,6 +37,10 @@ import { GenerateQueryDto } from './dto/generate-query.dto';
 import { UserDto } from '../users/dto/user.dto';
 import { LlmQueryResultDto } from './dto/llm-query-result.dto';
 import { OverpassResponseDto } from './dto/overpass-response.dto';
+import { MarkersService } from '../markers/markers.service';
+import { TagsService } from '../tags/tags.service';
+import { CreateFromOsmDto } from './dto/create-from-osm.dto';
+import { Marker } from '../markers/domain/marker';
 
 @ApiTags('Mapqueries')
 @Controller({
@@ -42,7 +48,11 @@ import { OverpassResponseDto } from './dto/overpass-response.dto';
   version: '1',
 })
 export class MapQueriesController {
-  constructor(private readonly mapQueriesService: MapQueriesService) {}
+  constructor(
+    private readonly mapQueriesService: MapQueriesService,
+    private readonly markersService: MarkersService,
+    private readonly tagsService: TagsService,
+  ) {}
 
   @Post()
   @ApiCreatedResponse({
@@ -176,5 +186,40 @@ export class MapQueriesController {
       user,
     });
     return data;
+  }
+
+  @Post('create-from-osm')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOkResponse({
+    description: 'Returns the created marker and associated tags',
+    type: Marker,
+  })
+  async createFromOsm(@Body() body: CreateFromOsmDto) {
+    const { type, id } = body;
+
+    const osmElement = await this.mapQueriesService.fetchOsmElement(type, id);
+
+    const createdMarker = await this.markersService.create({
+      latitude: osmElement.latitude,
+      longitude: osmElement.longitude,
+      source: 'osm',
+      osmType: osmElement.type,
+      osmId: osmElement.id.toString(),
+      category: '',
+    });
+
+    const tagPromises = Object.entries(osmElement.tags).map(([key, value]) =>
+      this.tagsService.create({
+        key,
+        value,
+        marker: { id: createdMarker.id },
+      }),
+    );
+
+    await Promise.all(tagPromises);
+
+    const markerWithTags = await this.markersService.findById(createdMarker.id);
+
+    return markerWithTags;
   }
 }

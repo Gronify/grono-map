@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   // common
   Injectable,
 } from '@nestjs/common';
@@ -16,6 +17,18 @@ export class MarkersService {
   ) {}
 
   async create(createMarkerDto: CreateMarkerDto) {
+    if (createMarkerDto.osmId) {
+      const existing = await this.markerRepository.findByOsmIdAndType(
+        createMarkerDto.osmId,
+        createMarkerDto.osmType,
+      );
+      if (existing) {
+        throw new ConflictException(
+          'Marker with this OSM ID and type already exists',
+        );
+      }
+    }
+
     // Do not remove comment below.
     // <creating-property />
 

@@ -76,4 +76,18 @@ export class MarkerRelationalRepository implements MarkerRepository {
   async remove(id: Marker['id']): Promise<void> {
     await this.markerRepository.delete(id);
   }
+
+  async findByOsmIdAndType(
+    osmId: string,
+    osmType: string,
+  ): Promise<NullableType<Marker>> {
+    const entity = await this.markerRepository.findOne({
+      where: {
+        osmId,
+        osmType,
+      },
+    });
+
+    return entity ? MarkerMapper.toDomain(entity) : null;
+  }
 }

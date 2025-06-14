@@ -6,6 +6,7 @@ import {
   Injectable,
   HttpStatus,
   UnprocessableEntityException,
+  BadRequestException,
 } from '@nestjs/common';
 import { CreateMapQueryDto } from './dto/create-map-query.dto';
 import { UpdateMapQueryDto } from './dto/update-map-query.dto';
@@ -17,6 +18,7 @@ import { ConfigService } from '@nestjs/config';
 import { AllConfigType } from '../config/config.type';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { LlmQueryResultDto } from './dto/llm-query-result.dto';
+import { OsmElement, OverpassApiResponse } from './dto/osm-marker.dto';
 @Injectable()
 export class MapQueriesService {
   constructor(
@@ -222,5 +224,56 @@ export class MapQueriesService {
       console.error('Overpass API request failed:', error);
       throw new Error('Failed to fetch data from Overpass API');
     }
+  }
+
+  async fetchOsmElement(
+    type: 'node' | 'way' | 'relation',
+    id: number,
+  ): Promise<OsmElement> {
+    const query = `[out:json];${type}(${id});out;`;
+    const url =
+      'https://overpass-api.de/api/interpreter?data=' +
+      encodeURIComponent(query);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new BadRequestException(
+        `Overpass API returned error: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data: OverpassApiResponse = await response.json();
+
+    if (!data.elements || data.elements.length === 0) {
+      throw new BadRequestException(
+        `No OSM element found with type "${type}" and ID "${id}".`,
+      );
+    }
+
+    const element = data.elements[0];
+
+    if (
+      !element ||
+      typeof element.lat !== 'number' ||
+      typeof element.lon !== 'number'
+    ) {
+      throw new BadRequestException(
+        `Invalid or incomplete OSM element received from Overpass API.`,
+      );
+    }
+
+    return {
+      type: element.type,
+      id: element.id,
+      longitude: element.lon,
+      latitude: element.lat,
+      tags: element.tags ?? {},
+    };
   }
 }
