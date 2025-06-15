@@ -27,6 +27,7 @@ import {
 } from '../utils/dto/infinity-pagination-response.dto';
 import { infinityPagination } from '../utils/infinity-pagination';
 import { FindAllMarkersDto } from './dto/find-all-markers.dto';
+import { FindNearbyMarkersDto } from './dto/find-nearby-markers.dto';
 
 @ApiTags('Markers')
 @ApiBearerAuth()
@@ -104,5 +105,15 @@ export class MarkersController {
   })
   remove(@Param('id') id: string) {
     return this.markersService.remove(id);
+  }
+
+  @Get('nearby/markers')
+  @ApiOkResponse({
+    description: 'Retrieve markers located nearby the specified coordinates',
+    type: [Marker],
+  })
+  async findNearby(@Query() query: FindNearbyMarkersDto): Promise<Marker[]> {
+    const { latitude, longitude, radiusMeters } = query;
+    return this.markersService.findNearby(latitude, longitude, radiusMeters);
   }
 }

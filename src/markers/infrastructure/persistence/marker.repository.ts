@@ -29,4 +29,10 @@ export abstract class MarkerRepository {
     osmId: string,
     osmType: string,
   ): Promise<NullableType<Marker>>;
+
+  abstract findNearby(
+    latitude: number,
+    longitude: number,
+    radiusMeters: number,
+  ): Promise<Marker[]>;
 }

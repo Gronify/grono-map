@@ -90,4 +90,8 @@ export class MarkersService {
   remove(id: Marker['id']) {
     return this.markerRepository.remove(id);
   }
+
+  async findNearby(latitude: number, longitude: number, radiusMeters: number) {
+    return this.markerRepository.findNearby(latitude, longitude, radiusMeters);
+  }
 }

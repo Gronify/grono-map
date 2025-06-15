@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Raw } from 'typeorm';
 import { MarkerEntity } from '../entities/marker.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { Marker } from '../../../../domain/marker';
@@ -89,5 +89,27 @@ export class MarkerRelationalRepository implements MarkerRepository {
     });
 
     return entity ? MarkerMapper.toDomain(entity) : null;
+  }
+
+  async findNearby(
+    latitude: number,
+    longitude: number,
+    radiusMeters: number,
+  ): Promise<Marker[]> {
+    const earthRadius = 6371000; // у метрах
+
+    const markers = await this.markerRepository.find({
+      where: {
+        latitude: Raw(
+          () => `ABS(latitude - ${latitude}) <= ${radiusMeters / earthRadius}`,
+        ),
+        longitude: Raw(
+          () =>
+            `ABS(longitude - ${longitude}) <= ${radiusMeters / (earthRadius * Math.cos((latitude * Math.PI) / 180))}`,
+        ),
+      },
+    });
+
+    return markers.map((entity) => MarkerMapper.toDomain(entity));
   }
 }
