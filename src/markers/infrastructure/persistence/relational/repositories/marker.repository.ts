@@ -96,7 +96,7 @@ export class MarkerRelationalRepository implements MarkerRepository {
     longitude: number,
     radiusMeters: number,
   ): Promise<Marker[]> {
-    const earthRadius = 6371000; // у метрах
+    const earthRadius = 6371000;
 
     const markers = await this.markerRepository.find({
       where: {

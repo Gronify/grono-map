@@ -28,10 +28,11 @@ import {
 import { infinityPagination } from '../utils/infinity-pagination';
 import { FindAllMarkersDto } from './dto/find-all-markers.dto';
 import { FindNearbyMarkersDto } from './dto/find-nearby-markers.dto';
+import { Roles } from '../roles/roles.decorator';
+import { RolesGuard } from '../roles/roles.guard';
+import { RoleEnum } from '../roles/roles.enum';
 
 @ApiTags('Markers')
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
 @Controller({
   path: 'markers',
   version: '1',
@@ -40,6 +41,8 @@ export class MarkersController {
   constructor(private readonly markersService: MarkersService) {}
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   @ApiCreatedResponse({
     type: Marker,
   })
@@ -48,6 +51,8 @@ export class MarkersController {
   }
 
   @Get()
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   @ApiOkResponse({
     type: InfinityPaginationResponse(Marker),
   })
@@ -85,6 +90,8 @@ export class MarkersController {
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   @ApiParam({
     name: 'id',
     type: String,
@@ -98,6 +105,9 @@ export class MarkersController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @Roles(RoleEnum.admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @ApiParam({
     name: 'id',
     type: String,

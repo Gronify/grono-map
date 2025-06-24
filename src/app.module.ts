@@ -22,6 +22,13 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { AllConfigType } from './config/config.type';
 import { SessionModule } from './session/session.module';
 import { MailerModule } from './mailer/mailer.module';
+import { MarkersModule } from './markers/markers.module';
+import { TagsModule } from './tags/tags.module';
+import { CommentsModule } from './comments/comments.module';
+import { MapQueriesModule } from './map-queries/map-queries.module';
+import mapQueryConfig from './map-queries/config/map-query.config';
+import redisConfig from './redis/config/redis.config';
+import { RedisModule } from './redis/redis.module';
 
 const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
   useClass: TypeOrmConfigService,
@@ -29,15 +36,6 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
     return new DataSource(options).initialize();
   },
 });
-
-import { MarkersModule } from './markers/markers.module';
-
-import { TagsModule } from './tags/tags.module';
-
-import { CommentsModule } from './comments/comments.module';
-
-import { MapQueriesModule } from './map-queries/map-queries.module';
-import mapQueryConfig from './map-queries/config/map-query.config';
 
 @Module({
   imports: [
@@ -49,6 +47,7 @@ import mapQueryConfig from './map-queries/config/map-query.config';
       isGlobal: true,
       load: [
         databaseConfig,
+        redisConfig,
         authConfig,
         appConfig,
         mailConfig,
@@ -56,6 +55,7 @@ import mapQueryConfig from './map-queries/config/map-query.config';
         facebookConfig,
         googleConfig,
         mapQueryConfig,
+        redisConfig,
       ],
       envFilePath: ['.env'],
     }),
@@ -92,6 +92,7 @@ import mapQueryConfig from './map-queries/config/map-query.config';
     MailModule,
     MailerModule,
     HomeModule,
+    RedisModule,
   ],
 })
 export class AppModule {}

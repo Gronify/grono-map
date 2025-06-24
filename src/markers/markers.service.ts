@@ -8,12 +8,14 @@ import { UpdateMarkerDto } from './dto/update-marker.dto';
 import { MarkerRepository } from './infrastructure/persistence/marker.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Marker } from './domain/marker';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class MarkersService {
   constructor(
     // Dependencies here
     private readonly markerRepository: MarkerRepository,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(createMarkerDto: CreateMarkerDto) {
@@ -92,6 +94,14 @@ export class MarkersService {
   }
 
   async findNearby(latitude: number, longitude: number, radiusMeters: number) {
-    return this.markerRepository.findNearby(latitude, longitude, radiusMeters);
+    const cacheKey = `nearby:${latitude}:${longitude}:${radiusMeters}`;
+
+    return this.redisService.getOrSet(cacheKey, async () => {
+      return this.markerRepository.findNearby(
+        latitude,
+        longitude,
+        radiusMeters,
+      );
+    });
   }
 }
