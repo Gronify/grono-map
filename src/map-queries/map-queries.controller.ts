@@ -41,6 +41,7 @@ import { MarkersService } from '../markers/markers.service';
 import { TagsService } from '../tags/tags.service';
 import { CreateFromOsmDto } from './dto/create-from-osm.dto';
 import { Marker } from '../markers/domain/marker';
+import { OverpassApiMapResponse } from './dto/osm-marker.dto';
 
 @ApiTags('Mapqueries')
 @Controller({
@@ -161,7 +162,7 @@ export class MapQueriesController {
   async generateAndFetch(
     @Body() body: GenerateQueryDto,
     @Request() request,
-  ): Promise<any> {
+  ): Promise<OverpassApiMapResponse> {
     const { input, latitude, longitude, radius } = body;
     const user: UserDto = request.user;
 

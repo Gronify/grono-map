@@ -17,7 +17,13 @@ import { ConfigService } from '@nestjs/config';
 import { AllConfigType } from '../config/config.type';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { LlmQueryResultDto } from './dto/llm-query-result.dto';
-import { OsmElement, OverpassApiResponse } from './dto/osm-marker.dto';
+import {
+  OsmElement,
+  OsmElementApi,
+  OverpassApiMapResponse,
+  OverpassApiNodeResponse,
+  OverpassApiResponse,
+} from './dto/osm-marker.dto';
 import { RunnableSequence } from '@langchain/core/runnables';
 @Injectable()
 export class MapQueriesService {
@@ -215,7 +221,9 @@ export class MapQueriesService {
     };
   }
 
-  async fetchOverpassData(overpassQuery: string): Promise<any> {
+  async fetchOverpassData(
+    overpassQuery: string,
+  ): Promise<OverpassApiMapResponse> {
     const url =
       'https://overpass-api.de/api/interpreter?data=' +
       encodeURIComponent(overpassQuery);
@@ -234,9 +242,15 @@ export class MapQueriesService {
         );
       }
 
-      const data = await response.json();
-      data.elements = await this.enrichOverpassElements(data.elements);
-      return data;
+      const data: OverpassApiResponse = await response.json();
+
+      const enrichedElements = await this.enrichOverpassElements(data.elements);
+
+      const responseData: OverpassApiMapResponse = {
+        ...data,
+        elements: enrichedElements,
+      };
+      return responseData;
     } catch (error) {
       console.error('Overpass API request failed:', error);
       throw new Error('Failed to fetch data from Overpass API');
@@ -251,7 +265,6 @@ export class MapQueriesService {
     const url =
       'https://overpass-api.de/api/interpreter?data=' +
       encodeURIComponent(query);
-
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -259,7 +272,8 @@ export class MapQueriesService {
       },
     });
 
-    const data: OverpassApiResponse = await response.json();
+    const data: OverpassApiNodeResponse = await response.json();
+
     const element = data.elements[0];
 
     return {
@@ -271,9 +285,15 @@ export class MapQueriesService {
     };
   }
 
-  private async enrichElementWithCoords(element: any): Promise<any> {
+  private async enrichElementWithCoords(
+    element: OsmElementApi,
+  ): Promise<OsmElement> {
     if (element.type === 'node') {
-      return element;
+      return {
+        ...element,
+        latitude: element.lat,
+        longitude: element.lon,
+      };
     }
 
     if (
@@ -286,19 +306,20 @@ export class MapQueriesService {
         const firstNode = await this.fetchOsmElement('node', firstNodeId);
         return {
           ...element,
-          lat: firstNode.latitude,
-          lon: firstNode.longitude,
+          latitude: firstNode.latitude,
+          longitude: firstNode.longitude,
         };
       } catch (error) {
         console.error('Failed to fetch first node coordinates:', error);
-        return element;
+        throw new Error('Failed to enrich element with coordinates');
       }
     }
-
-    return element;
+    throw new Error('Failed to enrich element with coordinates');
   }
 
-  async enrichOverpassElements(elements: OsmElement[]): Promise<OsmElement[]> {
+  async enrichOverpassElements(
+    elements: OsmElementApi[],
+  ): Promise<OsmElement[]> {
     const enriched: OsmElement[] = [];
     for (const element of elements) {
       enriched.push(await this.enrichElementWithCoords(element));
