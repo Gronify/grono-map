@@ -14,10 +14,10 @@ export class AuthFacebookService {
     loginDto: AuthFacebookLoginDto,
   ): Promise<SocialInterface> {
     const fb: Facebook = new Facebook({
-      appId: this.configService.get('facebook.appId', {
+      appId: this.configService.get<string>('facebook.appId', {
         infer: true,
       }),
-      appSecret: this.configService.get('facebook.appSecret', {
+      appSecret: this.configService.get<string>('facebook.appSecret', {
         infer: true,
       }),
       version: 'v7.0',
