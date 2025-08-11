@@ -9,7 +9,9 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "migration:run:api": "turbo run migration:run --filter=api"
+    
   },
   "devDependencies": {
     "prettier": "3.5.3",
