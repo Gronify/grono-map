@@ -1,9 +1,155 @@
 'use client';
 
-import { MapContainer, TileLayer, Marker, Popup, Polygon } from 'react-leaflet';
-import L, { LatLngExpression } from 'leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polygon,
+  Pane,
+  Circle,
+  ImageOverlay,
+} from 'react-leaflet';
+import L, { LatLngBounds, LatLngExpression } from 'leaflet';
+import { useMap, useMapEvent, useMapEvents } from 'react-leaflet/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+function FindLocation() {
+  const map = useMapEvents({
+    click: () => {
+      map.locate();
+    },
+    locationfound: (location) => {
+      console.log('location found:', location);
+    },
+  });
+  return null;
+}
+
+function MyComponent() {
+  const map = useMapEvent('click', () => {
+    map.setView([50.5, 30.5], map.getZoom());
+  });
+  return null;
+}
+
+// function DraggableMarker({
+//   circleRef,
+//   position,
+//   onPositionChange,
+// }: {
+//   circleRef: React.RefObject<L.Circle | null>;
+//   position: LatLngExpression;
+//   onPositionChange: (pos: LatLngExpression) => void;
+// }) {
+//   const markerRef = useRef<L.Marker | null>(null);
+//   const [markerPosition, setMarkerPosition] =
+//     useState<LatLngExpression>(position);
+//   const [draggable, setDraggable] = useState(true);
+
+//   const eventHandlers = useMemo(
+//     () => ({
+//       drag(e: L.LeafletEvent) {
+//         const marker = e.target as L.Marker;
+//         const latlng = marker.getLatLng();
+//         circleRef.current?.setLatLng(latlng);
+//       },
+//       dragend() {
+//         const marker = markerRef.current;
+//         if (marker) {
+//           const latlng = marker.getLatLng();
+//           setMarkerPosition(latlng);
+//           onPositionChange(latlng);
+//         }
+//       },
+//     }),
+//     [circleRef, onPositionChange],
+//   );
+
+//   const toggleDraggable = useCallback(() => {
+//     setDraggable((d) => !d);
+//   }, []);
+
+//   return (
+//     <Marker
+//       draggable={draggable}
+//       eventHandlers={eventHandlers}
+//       position={markerPosition}
+//       ref={markerRef}
+//       // icon={L.icon({
+//       //   iconUrl: '/marker-icon.png',
+//       //   iconSize: [25, 41],
+//       //   iconAnchor: [12, 41],
+//       // })}
+//     >
+//       <Popup>
+//         <span onClick={toggleDraggable}>
+//           {draggable ? 'Marker is draggable' : 'Click to make marker draggable'}
+//         </span>
+//       </Popup>
+//     </Marker>
+//   );
+// }
+
+function DraggableMarker({
+  circleRef,
+  position,
+  onPositionChange,
+}: {
+  circleRef: React.RefObject<L.Circle | null>;
+  position: LatLngExpression;
+  onPositionChange: (pos: LatLngExpression) => void;
+}) {
+  const markerRef = useRef<L.Marker | null>(null);
+  const [draggable, setDraggable] = useState(true);
+
+  const eventHandlers = useMemo(
+    () => ({
+      drag(e: L.LeafletEvent) {
+        const marker = e.target as L.Marker;
+        circleRef.current?.setLatLng(marker.getLatLng());
+      },
+      dragend() {
+        const marker = markerRef.current;
+        if (marker) {
+          onPositionChange(marker.getLatLng());
+        }
+      },
+    }),
+    [circleRef, onPositionChange],
+  );
+
+  const toggleDraggable = useCallback(() => setDraggable((d) => !d), []);
+
+  return (
+    <Marker
+      draggable={draggable}
+      eventHandlers={eventHandlers}
+      position={position}
+      ref={markerRef}
+      //BUG:
+      // icon={L.icon({
+      //   iconUrl: '/marker-icon.png',
+      //   iconSize: [25, 41],
+      //   iconAnchor: [12, 41],
+      // })}
+    >
+      <Popup>
+        <span onClick={toggleDraggable}>
+          {draggable ? 'Marker is draggable' : 'Click to make marker draggable'}
+        </span>
+      </Popup>
+    </Marker>
+  );
+}
 
 export default function Map() {
+  const [markerPos, setMarkerPos] = useState<LatLngExpression>([
+    50.4501, 30.5234,
+  ]);
+  const markerRef = useRef<L.Marker | null>(null);
+  const circleRef = useRef<L.Circle | null>(null);
+
   const position: LatLngExpression = [50.4501, 30.5234];
   const multiPolygon: LatLngExpression[][] = [
     [
@@ -18,6 +164,18 @@ export default function Map() {
     ],
   ];
   const purpleOptions = { color: 'purple' };
+  const fillBlueOptions = { fillColor: 'blue' };
+
+  const handleMapClick = useCallback((e: L.LeafletMouseEvent) => {
+    const { lat, lng } = e.latlng;
+    setMarkerPos([lat, lng]);
+    circleRef.current?.setLatLng(e.latlng);
+  }, []);
+
+  function SetMarker() {
+    useMapEvent('click', handleMapClick);
+    return null;
+  }
 
   return (
     <MapContainer
@@ -25,13 +183,19 @@ export default function Map() {
       zoom={13}
       style={{ height: '100vh', width: '100%' }}
     >
+      <FindLocation />
+      <SetMarker />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+
       <Polygon pathOptions={purpleOptions} positions={multiPolygon} />
-      <Marker
-        position={[50.4501, 30.5234]}
+      {/* <Marker
+        draggable={true}
+        eventHandlers={eventHandlers}
+        position={markerPos}
+        ref={markerRef}
         icon={L.icon({
           iconUrl: '/marker-icon.png',
           iconSize: [25, 41],
@@ -39,7 +203,19 @@ export default function Map() {
         })}
       >
         <Popup>Hi!</Popup>
-      </Marker>
+      </Marker> */}
+      <Circle
+        center={circleRef.current?.getLatLng() ?? markerPos}
+        pathOptions={fillBlueOptions}
+        radius={1000}
+        ref={circleRef}
+      />
+      {/* <DraggableMarker circleRef={circleRef} onPositionChange={setMarkerPos} /> */}
+      <DraggableMarker
+        circleRef={circleRef}
+        position={markerPos}
+        onPositionChange={setMarkerPos}
+      />
     </MapContainer>
   );
 }

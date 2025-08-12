@@ -5,6 +5,7 @@
   "author": "",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",
     "build": "turbo run build",
     "test": "turbo run test",
