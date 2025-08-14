@@ -1,14 +1,8 @@
-'use client';
-import dynamic from 'next/dynamic';
-import { Button } from '@/shared/components/ui/button';
+// import dynamic from 'next/dynamic';
 
-const Map = dynamic(() => import('@/components/Map'), { ssr: false });
+import { MapPage } from '@/pages/map-page';
 
+// const MapPage = dynamic(() => import('@/pages/map-page'), { ssr: false });
 export default function Home() {
-  return (
-    <>
-      <Button>Test</Button>
-      <Map />
-    </>
-  );
+  return <MapPage />;
 }

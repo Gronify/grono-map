@@ -12,7 +12,7 @@ import {
 } from 'react-leaflet';
 import L, { LatLngExpression } from 'leaflet';
 import { useMapEvent, useMapEvents } from 'react-leaflet/hooks';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function FindLocation() {
   const map = useMapEvents({
@@ -111,6 +111,13 @@ export default function Map() {
     useMapEvent('click', handleMapClick);
     return null;
   }
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(true);
+  }, []);
+
+  if (!ready) return null;
 
   return (
     <MapContainer
