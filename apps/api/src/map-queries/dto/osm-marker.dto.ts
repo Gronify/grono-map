@@ -17,6 +17,7 @@ export interface OsmElement {
   id: number;
   longitude: number;
   latitude: number;
+  nodes?: number[];
   tags: OsmElementTags;
 }
 

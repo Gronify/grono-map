@@ -1,14 +1,35 @@
 'use client';
 
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  CircleMarker,
+} from 'react-leaflet';
 import L, { LatLngExpression } from 'leaflet';
 import { useMapEvent } from 'react-leaflet/hooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+type OsmElementTags = {
+  [key: string]: string;
+};
+
+type OsmElement = {
+  type: 'node' | 'way' | 'relation';
+  id: number;
+  longitude: number;
+  latitude: number;
+  nodes?: number[];
+  tags: OsmElementTags;
+};
 
 interface MapProps {
   position: LatLngExpression;
   radius?: number;
   setPosition: (pos: LatLngExpression) => void;
+  elements?: OsmElement[];
 }
 
 function DraggableMarker({
@@ -50,9 +71,21 @@ export default function Map({
   position,
   radius = 1000,
   setPosition,
+  elements = [],
 }: MapProps) {
   const circleRef = useRef<L.Circle | null>(null);
-  const fillBlueOptions = { fillColor: 'blue' };
+  const fillBlueOptions = {
+    fillColor: 'blue',
+    color: 'blue',
+    fillOpacity: 0.1,
+    opacity: 0.5,
+  };
+  const elementsColorOptions = {
+    fillColor: 'red',
+    color: 'blue',
+    fillOpacity: 0.2,
+    opacity: 0.4,
+  };
 
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
@@ -68,11 +101,9 @@ export default function Map({
   }
 
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
     setReady(true);
   }, []);
-
   if (!ready) return null;
 
   return (
@@ -87,11 +118,32 @@ export default function Map({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
+      {elements.map((el) => (
+        <CircleMarker
+          key={el.id}
+          center={[el.latitude, el.longitude]}
+          radius={10}
+          pathOptions={elementsColorOptions}
+        >
+          <Popup>
+            <div className="space-y-1">
+              {Object.entries(el.tags).map(([key, value]) => (
+                <div key={key}>
+                  <strong className="capitalize">{key}: </strong>
+                  <span>{value}</span>
+                </div>
+              ))}
+            </div>
+          </Popup>
+        </CircleMarker>
+      ))}
+
       <Circle
         center={circleRef.current?.getLatLng() ?? position}
         pathOptions={fillBlueOptions}
         radius={radius}
         ref={circleRef}
+        interactive={false}
       />
       <DraggableMarker
         circleRef={circleRef}
