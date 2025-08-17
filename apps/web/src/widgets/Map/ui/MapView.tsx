@@ -1,6 +1,12 @@
 'use client';
 
-import { MapContainer, TileLayer, Circle, CircleMarker } from 'react-leaflet';
+import {
+  MapContainer,
+  TileLayer,
+  Circle,
+  CircleMarker,
+  Popup,
+} from 'react-leaflet';
 import L, { LatLngExpression } from 'leaflet';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { DraggableMarker } from './DraggableMarker';
@@ -69,7 +75,18 @@ export const MapView = ({
           center={[el.latitude, el.longitude]}
           radius={10}
           pathOptions={elementsColorOptions}
-        />
+        >
+          <Popup>
+            <div className="space-y-1">
+              {Object.entries(el.tags).map(([key, value]) => (
+                <div key={key}>
+                  <strong className="capitalize">{key}: </strong>
+                  <span>{value}</span>
+                </div>
+              ))}
+            </div>
+          </Popup>
+        </CircleMarker>
       ))}
       <Circle
         center={circleRef.current?.getLatLng() ?? position}
