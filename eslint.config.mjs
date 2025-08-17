@@ -46,6 +46,7 @@ export default [
       'require-await': 'off',
       '@typescript-eslint/require-await': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
+      'linebreak-style': ['error', 'unix'],
       'no-restricted-syntax': [
         'error',
         {

@@ -6,10 +6,7 @@
       "request": "launch",
       "name": "Debug Nest Framework (apps/api)",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "start:debug"
-      ],
+      "runtimeArgs": ["run", "start:debug"],
       "autoAttachChildProcesses": true,
       "restart": true,
       "sourceMaps": true,
@@ -17,15 +14,12 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/apps/api"
     },
-     {
+    {
       "type": "node",
       "request": "launch",
       "name": "Debug Next.js (apps/web)",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "dev"],
       "autoAttachChildProcesses": true,
       "restart": true,
       "sourceMaps": true,
