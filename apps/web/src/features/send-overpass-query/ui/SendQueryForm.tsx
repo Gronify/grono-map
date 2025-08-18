@@ -3,7 +3,7 @@
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { ChevronDown, Send } from 'lucide-react';
+import { ChevronDown, Loader2, Send } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
@@ -12,6 +12,7 @@ type Props = {
   onTextChange: (value: string) => void;
   onRadiusChange: (value: number) => void;
   onSubmit: () => void;
+  loading?: boolean;
 };
 
 export const SendQueryForm = ({
@@ -20,6 +21,7 @@ export const SendQueryForm = ({
   onTextChange,
   onRadiusChange,
   onSubmit,
+  loading,
 }: Props) => {
   const [open, setOpen] = useState(false);
 
@@ -36,9 +38,14 @@ export const SendQueryForm = ({
           <Button
             onClick={onSubmit}
             size="icon"
+            disabled={loading}
             className="h-[50px] w-[50px] cursor-pointer"
           >
-            <Send className="h-5 w-5" />
+            {loading ? (
+              <Loader2 className="animate-spin h-5 w-5" /> // icon from lucide-react
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </Button>
         </div>
 

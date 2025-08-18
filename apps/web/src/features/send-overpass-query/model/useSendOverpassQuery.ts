@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   generateAndFetchOverpassQuery,
   OsmElement,
@@ -17,6 +17,8 @@ export const useSendOverpassQuery = ({
   radius: number;
   onSuccess: (elements: OsmElement[]) => void;
 }) => {
+  const [isLoading, setLoading] = useState(false);
+
   const handleSend = useCallback(async () => {
     try {
       const { lat, lng } = position as { lat: number; lng: number };
@@ -26,13 +28,16 @@ export const useSendOverpassQuery = ({
         longitude: lng,
         radius,
       };
+      setLoading(true);
 
       const data = await generateAndFetchOverpassQuery(payload);
       onSuccess(data.elements);
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
   }, [text, position, radius, onSuccess]);
 
-  return { handleSend };
+  return { handleSend, isLoading };
 };
