@@ -244,7 +244,9 @@ export class MapQueriesService {
 
       const data: OverpassApiResponse = await response.json();
 
-      const enrichedElements = await this.enrichOverpassElements(data.elements);
+      const enrichedElements = await this.enrichOverpassElementsBatch(
+        data.elements,
+      );
 
       const responseData: OverpassApiMapResponse = {
         ...data,
@@ -325,5 +327,93 @@ export class MapQueriesService {
       enriched.push(await this.enrichElementWithCoords(element));
     }
     return enriched;
+  }
+
+  async fetchManyNodes(
+    nodeIds: number[],
+  ): Promise<Record<number, { lat: number; lon: number }>> {
+    if (nodeIds.length === 0) return {};
+
+    const idsString = nodeIds.join(',');
+    const query = `[out:json];node(id:${idsString});out;`;
+    const url =
+      'https://overpass-api.de/api/interpreter?data=' +
+      encodeURIComponent(query);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    const data: OverpassApiNodeResponse = await response.json();
+
+    const coordsMap: Record<number, { lat: number; lon: number }> = {};
+
+    data.elements.forEach((el) => {
+      coordsMap[el.id] = { lat: el.lat, lon: el.lon };
+    });
+
+    return coordsMap;
+  }
+
+  async enrichOverpassElementsBatch(
+    elements: OsmElementApi[],
+  ): Promise<OsmElement[]> {
+    const nodeIdsToFetch: number[] = [];
+
+    for (const element of elements) {
+      if (
+        (element.type === 'way' || element.type === 'relation') &&
+        Array.isArray(element.nodes) &&
+        element.nodes.length > 0
+      ) {
+        nodeIdsToFetch.push(element.nodes[0]);
+      }
+    }
+
+    const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
+
+    const coordsMap = await this.fetchManyNodes(uniqueNodeIds);
+
+    return elements.map((element) => {
+      if (element.type === 'node') {
+        return {
+          ...element,
+          latitude: element.lat,
+          longitude: element.lon,
+        };
+      }
+
+      if (
+        (element.type === 'way' || element.type === 'relation') &&
+        Array.isArray(element.nodes) &&
+        element.nodes.length > 0
+      ) {
+        const firstNodeId = element.nodes[0];
+        const coords = coordsMap[firstNodeId];
+        if (coords) {
+          return {
+            ...element,
+            latitude: coords.lat,
+            longitude: coords.lon,
+          };
+        }
+      }
+
+      // TODO: temporary hack – relation without nodes (multipolygon etc). Should derive coords via members.
+
+      // console.warn({
+      //   ...element,
+      // });
+
+      return {
+        ...element,
+        latitude: 0,
+        longitude: 0,
+      };
+      //TODO: temporary hack
+      throw new Error('Failed to enrich element with coordinates');
+    });
   }
 }
