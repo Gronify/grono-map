@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './styles/globals.css';
 import 'leaflet/dist/leaflet.css';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'Grono-map',
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <main>{children}</main>
+        <Toaster richColors position="top-center" />
+      </body>
     </html>
   );
 }

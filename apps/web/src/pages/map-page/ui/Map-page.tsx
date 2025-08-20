@@ -18,7 +18,7 @@ export default function MapPage() {
     lng: 30.5234,
   });
   const [elements, setElements] = useState<OsmElement[]>([]);
-  const { handleSend } = useSendOverpassQuery({
+  const { handleSend, isLoading } = useSendOverpassQuery({
     text,
     position: markerPos,
     radius,
@@ -41,6 +41,7 @@ export default function MapPage() {
         onTextChange={setText}
         onRadiusChange={(val) => setRadius(val)}
         onSubmit={handleSend}
+        loading={isLoading}
       />
     </div>
   );
