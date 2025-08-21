@@ -329,30 +329,52 @@ export class MapQueriesService {
     return enriched;
   }
 
+  private chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  private async sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async fetchManyNodes(
     nodeIds: number[],
   ): Promise<Record<number, { lat: number; lon: number }>> {
     if (nodeIds.length === 0) return {};
 
-    const idsString = nodeIds.join(',');
-    const query = `[out:json];node(id:${idsString});out;`;
-    const url =
-      'https://overpass-api.de/api/interpreter?data=' +
-      encodeURIComponent(query);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    const data: OverpassApiNodeResponse = await response.json();
-
+    const chunks = this.chunkArray(nodeIds, 250);
     const coordsMap: Record<number, { lat: number; lon: number }> = {};
 
-    data.elements.forEach((el) => {
-      coordsMap[el.id] = { lat: el.lat, lon: el.lon };
-    });
+    for (const chunk of chunks) {
+      const idsString = chunk.join(',');
+      const query = `[out:json];node(id:${idsString});out;`;
+      const url =
+        'https://overpass-api.de/api/interpreter?data=' +
+        encodeURIComponent(query);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Overpass API error: ${response.statusText}`);
+      }
+
+      const data: OverpassApiNodeResponse = await response.json();
+
+      data.elements.forEach((el) => {
+        coordsMap[el.id] = { lat: el.lat, lon: el.lon };
+      });
+
+      await this.sleep(2000);
+    }
 
     return coordsMap;
   }
