@@ -227,7 +227,7 @@ export class MapQueriesService {
     const url =
       'https://overpass-api.de/api/interpreter?data=' +
       encodeURIComponent(overpassQuery);
-
+    console.log(overpassQuery);
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -349,29 +349,57 @@ export class MapQueriesService {
     const chunks = this.chunkArray(nodeIds, 250);
     const coordsMap: Record<number, { lat: number; lon: number }> = {};
 
-    for (const chunk of chunks) {
+    for (let index = 0; index < chunks.length; index++) {
+      const chunk = chunks[index];
       const idsString = chunk.join(',');
       const query = `[out:json];node(id:${idsString});out;`;
       const url =
         'https://overpass-api.de/api/interpreter?data=' +
         encodeURIComponent(query);
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
+      // --- retry loop ---
+      let attempt = 0;
+      const maxRetries = 5;
+      while (true) {
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+            },
+          });
 
-      if (!response.ok) {
-        throw new Error(`Overpass API error: ${response.statusText}`);
+          if (!response.ok) {
+            throw new Error(
+              `Overpass API error: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          const data: OverpassApiNodeResponse = await response.json();
+
+          data.elements.forEach((el) => {
+            coordsMap[el.id] = { lat: el.lat, lon: el.lon };
+          });
+
+          break;
+        } catch (error: any) {
+          attempt++;
+          if (attempt > maxRetries) {
+            console.error(
+              `Failed after ${maxRetries} retries for chunk:`,
+              chunk,
+            );
+            throw error;
+          }
+
+          const delay = 2000 * attempt;
+          console.warn(
+            `Overpass API request failed for chunk ${index + 1}/${chunks.length}
+             (attempt ${attempt}/${maxRetries}): ${error}. Retrying in ${delay}ms...`,
+          );
+          await this.sleep(delay);
+        }
       }
-
-      const data: OverpassApiNodeResponse = await response.json();
-
-      data.elements.forEach((el) => {
-        coordsMap[el.id] = { lat: el.lat, lon: el.lon };
-      });
 
       await this.sleep(2000);
     }
