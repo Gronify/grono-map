@@ -227,7 +227,7 @@ export class MapQueriesService {
     const url =
       'https://overpass-api.de/api/interpreter?data=' +
       encodeURIComponent(overpassQuery);
-
+    console.log(overpassQuery);
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -244,7 +244,9 @@ export class MapQueriesService {
 
       const data: OverpassApiResponse = await response.json();
 
-      const enrichedElements = await this.enrichOverpassElements(data.elements);
+      const enrichedElements = await this.enrichOverpassElementsBatch(
+        data.elements,
+      );
 
       const responseData: OverpassApiMapResponse = {
         ...data,
@@ -325,5 +327,143 @@ export class MapQueriesService {
       enriched.push(await this.enrichElementWithCoords(element));
     }
     return enriched;
+  }
+
+  private chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  private async sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async fetchManyNodes(
+    nodeIds: number[],
+  ): Promise<Record<number, { lat: number; lon: number }>> {
+    if (nodeIds.length === 0) return {};
+
+    const chunks = this.chunkArray(nodeIds, 250);
+    const coordsMap: Record<number, { lat: number; lon: number }> = {};
+
+    for (let index = 0; index < chunks.length; index++) {
+      const chunk = chunks[index];
+      const idsString = chunk.join(',');
+      const query = `[out:json];node(id:${idsString});out;`;
+      const url =
+        'https://overpass-api.de/api/interpreter?data=' +
+        encodeURIComponent(query);
+
+      // --- retry loop ---
+      let attempt = 0;
+      const maxRetries = 5;
+      while (true) {
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `Overpass API error: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          const data: OverpassApiNodeResponse = await response.json();
+
+          data.elements.forEach((el) => {
+            coordsMap[el.id] = { lat: el.lat, lon: el.lon };
+          });
+
+          break;
+        } catch (error: any) {
+          attempt++;
+          if (attempt > maxRetries) {
+            console.error(
+              `Failed after ${maxRetries} retries for chunk:`,
+              chunk,
+            );
+            throw error;
+          }
+
+          const delay = 2000 * attempt;
+          console.warn(
+            `Overpass API request failed for chunk ${index + 1}/${chunks.length}
+             (attempt ${attempt}/${maxRetries}): ${error}. Retrying in ${delay}ms...`,
+          );
+          await this.sleep(delay);
+        }
+      }
+
+      await this.sleep(2000);
+    }
+
+    return coordsMap;
+  }
+
+  async enrichOverpassElementsBatch(
+    elements: OsmElementApi[],
+  ): Promise<OsmElement[]> {
+    const nodeIdsToFetch: number[] = [];
+
+    for (const element of elements) {
+      if (
+        (element.type === 'way' || element.type === 'relation') &&
+        Array.isArray(element.nodes) &&
+        element.nodes.length > 0
+      ) {
+        nodeIdsToFetch.push(element.nodes[0]);
+      }
+    }
+
+    const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
+
+    const coordsMap = await this.fetchManyNodes(uniqueNodeIds);
+
+    return elements.map((element) => {
+      if (element.type === 'node') {
+        return {
+          ...element,
+          latitude: element.lat,
+          longitude: element.lon,
+        };
+      }
+
+      if (
+        (element.type === 'way' || element.type === 'relation') &&
+        Array.isArray(element.nodes) &&
+        element.nodes.length > 0
+      ) {
+        const firstNodeId = element.nodes[0];
+        const coords = coordsMap[firstNodeId];
+        if (coords) {
+          return {
+            ...element,
+            latitude: coords.lat,
+            longitude: coords.lon,
+          };
+        }
+      }
+
+      // TODO: temporary hack – relation without nodes (multipolygon etc). Should derive coords via members.
+
+      // console.warn({
+      //   ...element,
+      // });
+
+      return {
+        ...element,
+        latitude: 0,
+        longitude: 0,
+      };
+      //TODO: temporary hack
+      throw new Error('Failed to enrich element with coordinates');
+    });
   }
 }
