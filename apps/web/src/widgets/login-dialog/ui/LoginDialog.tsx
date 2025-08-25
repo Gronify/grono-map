@@ -1,76 +1,68 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/shared/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/shared/components/ui/dialog';
+import { LoginForm } from '@/features/auth';
 import { useUser } from '@/entities/user/model/useUser';
-import { login } from '@/features/auth/api/authApi';
-import { Button } from '../../../shared/components/ui/button';
-import { Input } from '../../../shared/components/ui/input';
-import { Alert, AlertDescription } from '../../../shared/components/ui/alert';
-import { Label } from '../../../shared/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 
-export function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
-  const { setUser } = useUser();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function LoginDialog() {
+  const { user, logout, isLoading } = useUser();
+  const [open, setOpen] = useState(false);
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  if (isLoading)
+    return (
+      <Skeleton className="h-9 w-9 rounded-full fixed top-4 right-4 z-[9999]" />
+    );
 
-    try {
-      const { token, user } = await login({ email, password });
-      localStorage.setItem('token', token);
-      setUser(user);
-      onSuccess?.();
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
+  if (user) {
+    return (
+      <div className="fixed top-4 right-4 z-[9999]">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="p-0 rounded-full cursor-pointer">
+              <Avatar className="h-9 w-9">
+                <AvatarFallback>
+                  {user.email?.[0]?.toUpperCase() ?? 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleLogin} className="space-y-4 p-4">
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="fixed top-4 right-4 z-[9999]">Login</Button>
+      </DialogTrigger>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
-        <Input
-          id="password"
-          type="password"
-          placeholder="********"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      <Button
-        type="submit"
-        disabled={loading}
-        className="w-full cursor-pointer"
-      >
-        Login
-      </Button>
-    </form>
+      <DialogContent className="z-[9999]">
+        <DialogHeader>
+          <DialogTitle>Login</DialogTitle>
+        </DialogHeader>
+        <LoginForm onSuccess={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
   );
 }
