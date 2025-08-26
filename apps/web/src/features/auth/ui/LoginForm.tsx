@@ -22,8 +22,10 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
     setError(null);
 
     try {
-      const { token, user } = await login({ email, password });
+      const { token, user, refreshToken } = await login({ email, password });
       localStorage.setItem('token', token);
+      //bad bad bad
+      localStorage.setItem('refreshToken', refreshToken);
       setUser(user);
       onSuccess?.();
     } catch (err: any) {
