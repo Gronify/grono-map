@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/components/ui/dialog';
-import { LoginForm } from '@/features/auth';
+import { LoginForm, RegisterForm } from '@/features/auth';
 import { useUser } from '@/entities/user/model/useUser';
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 export function LoginDialog() {
   const { user, logout, isLoading } = useUser();
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   if (isLoading)
     return (
@@ -54,14 +55,40 @@ export function LoginDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="fixed top-4 right-4 z-[9999]">Login</Button>
+        <Button className="fixed top-4 right-4 z-[9999]">Sign In</Button>
       </DialogTrigger>
 
       <DialogContent className="z-[9999]">
         <DialogHeader>
-          <DialogTitle>Login</DialogTitle>
+          <DialogTitle>{mode === 'login' ? 'Login' : 'Register'}</DialogTitle>
         </DialogHeader>
-        <LoginForm onSuccess={() => setOpen(false)} />
+        {mode === 'login' ? (
+          <>
+            <LoginForm onSuccess={() => setOpen(false)} />
+            <p className="mt-2 text-sm text-center">
+              No account?{' '}
+              <button
+                onClick={() => setMode('register')}
+                className="text-blue-600 hover:underline cursor-pointer"
+              >
+                Register
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <RegisterForm onSuccess={() => setOpen(false)} />
+            <p className="mt-2 text-sm text-center">
+              Already have an account?{' '}
+              <button
+                onClick={() => setMode('login')}
+                className="text-blue-600 hover:underline cursor-pointer"
+              >
+                Login
+              </button>
+            </p>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

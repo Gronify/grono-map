@@ -22,7 +22,12 @@ export function login(data: { email: string; password: string }) {
   return apiPost<LoginResponse, typeof data>('/auth/email/login', data);
 }
 
-export function register(data: { email: string; password: string }) {
+export function register(data: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}) {
   return apiPost<void, typeof data>('/auth/email/register', data);
 }
 
