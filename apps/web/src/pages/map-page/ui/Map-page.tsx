@@ -7,6 +7,7 @@ import {
   SendQueryForm,
   useSendOverpassQuery,
 } from '@/features/send-overpass-query';
+import { LoginDialog } from '@/widgets/login-dialog/ui/LoginDialog';
 
 const Map = dynamic(() => import('@/widgets/Map/ui/Map'), { ssr: false });
 
@@ -43,6 +44,8 @@ export default function MapPage() {
         onSubmit={handleSend}
         loading={isLoading}
       />
+
+      <LoginDialog />
     </div>
   );
 }
