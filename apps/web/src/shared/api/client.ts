@@ -61,7 +61,7 @@ client.interceptors.response.use(
       try {
         //bad bad bad
         const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('No refresh token');
+        if (!refreshToken) throw new Error('Unauthorized');
 
         const { data } = await axios.post(`${API_URL}/auth/refresh`, null, {
           headers: { Authorization: `Bearer ${refreshToken}` },
@@ -82,7 +82,6 @@ client.interceptors.response.use(
         processQueue(err, null);
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/login';
         return Promise.reject(err);
       } finally {
         isRefreshing = false;

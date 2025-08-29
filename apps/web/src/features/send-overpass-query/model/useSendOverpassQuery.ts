@@ -34,8 +34,39 @@ export const useSendOverpassQuery = ({
       const data = await generateAndFetchOverpassQuery(payload);
       toast.success(`Found: ${data.elements.length} elements`, { id: toastId });
       onSuccess(data.elements);
-    } catch (e) {
-      toast.error(`Error while requesting`, { id: toastId });
+    } catch (e: any) {
+      let message = 'Unexpected error occurred';
+
+      if (e.response) {
+        const status = e.response.status;
+        switch (status) {
+          case 400:
+            message = 'Bad request. Please check your input.';
+            break;
+          case 401:
+            message = 'Unauthorized';
+            break;
+          case 403:
+            message = 'Forbidden. You do not have permission.';
+            break;
+          case 404:
+            message = 'No data found for the given parameters.';
+            break;
+          case 500:
+            message = 'Server error. Please try again later.';
+            break;
+          default:
+            message = `Request failed with status ${status}`;
+        }
+      } else if (e.request) {
+        message = 'No response from server.';
+      } else if (e.code === 'ECONNABORTED') {
+        message = 'Request timeout. Please try again.';
+      } else {
+        message = e.message || message;
+      }
+
+      toast.error(message, { id: toastId });
       console.error(e);
     } finally {
       setLoading(false);
