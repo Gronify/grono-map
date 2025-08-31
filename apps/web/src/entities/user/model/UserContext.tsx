@@ -21,6 +21,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
   };
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         setUser(null);
       })
       .finally(() => setIsLoading(false));

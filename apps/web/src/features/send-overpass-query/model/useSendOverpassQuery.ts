@@ -6,6 +6,7 @@ import {
 } from '@/pages/map-page/ui/api/map-queries';
 import { LatLngExpression } from 'leaflet';
 import { toast } from 'sonner';
+import { showErrorToast } from '../../../shared/lib/error';
 
 export const useSendOverpassQuery = ({
   text,
@@ -34,9 +35,8 @@ export const useSendOverpassQuery = ({
       const data = await generateAndFetchOverpassQuery(payload);
       toast.success(`Found: ${data.elements.length} elements`, { id: toastId });
       onSuccess(data.elements);
-    } catch (e) {
-      toast.error(`Error while requesting`, { id: toastId });
-      console.error(e);
+    } catch (e: any) {
+      showErrorToast(e, toastId);
     } finally {
       setLoading(false);
       /* setTimeout(() => {
