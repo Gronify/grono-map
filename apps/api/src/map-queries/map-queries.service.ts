@@ -423,8 +423,8 @@ export class MapQueriesService {
     }
 
     const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
-
     const coordsMap = await this.fetchManyNodes(uniqueNodeIds);
+    const failedRelations: OsmElementApi[] = [];
 
     return elements.map((element) => {
       if (element.type === 'node') {
@@ -456,6 +456,12 @@ export class MapQueriesService {
       // console.warn({
       //   ...element,
       // });
+      if (
+        element.type === 'relation' &&
+        (!element.nodes || element.nodes.length === 0)
+      ) {
+        failedRelations.push(element);
+      }
 
       return {
         ...element,
