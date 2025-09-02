@@ -483,7 +483,8 @@ export class MapQueriesService {
     const nodeIdsToFetch: number[] = [];
     const wayIdsToFetch: number[] = [];
 
-    // 1
+    // 1. Collect the first node IDs from all ways,
+    //    and the first way IDs from all relations.
     for (const element of elements) {
       if (
         element.type === 'way' &&
@@ -498,7 +499,8 @@ export class MapQueriesService {
       }
     }
 
-    // 2
+    // 2. Fetch ways data (to get their node lists),
+    //    then collect the first node from each way.
     let waysMap: Record<number, { id: number; nodes: number[] }> = {};
     if (wayIdsToFetch.length > 0) {
       waysMap = await this.fetchManyWays([...new Set(wayIdsToFetch)]);
@@ -510,11 +512,11 @@ export class MapQueriesService {
       }
     }
 
-    // 3
+    // 3. Fetch coordinates for all collected node IDs in one batch.
     const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
     const coordsMap = await this.fetchManyNodes(uniqueNodeIds);
 
-    //4
+    // 4. Enrich each element with coordinates.
     return elements.map((element) => {
       if (element.type === 'node') {
         return {
@@ -552,18 +554,6 @@ export class MapQueriesService {
         }
       }
 
-      // TODO: temporary hack – relation without nodes (multipolygon etc). Should derive coords via members.
-
-      console.warn({
-        ...element,
-      });
-
-      return {
-        ...element,
-        latitude: 0,
-        longitude: 0,
-      };
-      //TODO: temporary hack
       throw new Error('Failed to enrich element with coordinates');
     });
   }
