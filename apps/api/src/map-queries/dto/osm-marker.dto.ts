@@ -48,9 +48,15 @@ export interface OsmWayApi extends OsmBaseApi {
   nodes: number[];
 }
 
+export interface OsmRelationMember {
+  type: 'node' | 'way' | 'relation';
+  ref: number;
+  role: string;
+}
+
 export interface OsmRelationApi extends OsmBaseApi {
   type: 'relation';
-  nodes: number[];
+  members: OsmRelationMember[];
 }
 
 export type OsmElementApi = OsmNodeApi | OsmWayApi | OsmRelationApi;

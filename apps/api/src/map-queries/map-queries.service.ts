@@ -299,7 +299,7 @@ export class MapQueriesService {
     }
 
     if (
-      (element.type === 'way' || element.type === 'relation') &&
+      element.type === 'way' &&
       Array.isArray(element.nodes) &&
       element.nodes.length > 0
     ) {
@@ -407,25 +407,116 @@ export class MapQueriesService {
     return coordsMap;
   }
 
+  async fetchManyWays(
+    wayIds: number[],
+  ): Promise<Record<number, { id: number; nodes: number[] }>> {
+    if (wayIds.length === 0) return {};
+
+    const chunks = this.chunkArray(wayIds, 250);
+    const waysMap: Record<number, { id: number; nodes: number[] }> = {};
+
+    for (let index = 0; index < chunks.length; index++) {
+      const chunk = chunks[index];
+      const idsString = chunk.join(',');
+
+      const query = `[out:json];way(id:${idsString});out;`;
+      const url =
+        'https://overpass-api.de/api/interpreter?data=' +
+        encodeURIComponent(query);
+
+      let attempt = 0;
+      const maxRetries = 5;
+
+      // --- retry loop ---
+      while (true) {
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(
+              `Overpass API error: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          const data = await response.json();
+
+          data.elements.forEach((el: any) => {
+            if (el.type === 'way' && Array.isArray(el.nodes)) {
+              waysMap[el.id] = { id: el.id, nodes: el.nodes };
+            }
+          });
+
+          break;
+        } catch (error: any) {
+          attempt++;
+          if (attempt > maxRetries) {
+            console.error(
+              `Failed after ${maxRetries} retries for way chunk:`,
+              chunk,
+            );
+            throw error;
+          }
+
+          const delay = 2000 * attempt;
+          console.warn(
+            `Overpass API request failed for way chunk ${index + 1}/${chunks.length}
+           (attempt ${attempt}/${maxRetries}): ${error}. Retrying in ${delay}ms...`,
+          );
+          await this.sleep(delay);
+        }
+      }
+
+      await this.sleep(2000);
+    }
+
+    return waysMap;
+  }
+
   async enrichOverpassElementsBatch(
     elements: OsmElementApi[],
   ): Promise<OsmElement[]> {
     const nodeIdsToFetch: number[] = [];
+    const wayIdsToFetch: number[] = [];
 
+    // 1. Collect the first node IDs from all ways,
+    //    and the first way IDs from all relations.
     for (const element of elements) {
       if (
-        (element.type === 'way' || element.type === 'relation') &&
+        element.type === 'way' &&
         Array.isArray(element.nodes) &&
         element.nodes.length > 0
       ) {
         nodeIdsToFetch.push(element.nodes[0]);
       }
+
+      if (element.type === 'relation') {
+        wayIdsToFetch.push(element.members[0].ref);
+      }
     }
 
-    const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
+    // 2. Fetch ways data (to get their node lists),
+    //    then collect the first node from each way.
+    let waysMap: Record<number, { id: number; nodes: number[] }> = {};
+    if (wayIdsToFetch.length > 0) {
+      waysMap = await this.fetchManyWays([...new Set(wayIdsToFetch)]);
+      for (const wayId of Object.keys(waysMap).map(Number)) {
+        const way = waysMap[wayId];
+        if (way?.nodes?.length) {
+          nodeIdsToFetch.push(way.nodes[0]);
+        }
+      }
+    }
 
+    // 3. Fetch coordinates for all collected node IDs in one batch.
+    const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
     const coordsMap = await this.fetchManyNodes(uniqueNodeIds);
 
+    // 4. Enrich each element with coordinates.
     return elements.map((element) => {
       if (element.type === 'node') {
         return {
@@ -435,13 +526,8 @@ export class MapQueriesService {
         };
       }
 
-      if (
-        (element.type === 'way' || element.type === 'relation') &&
-        Array.isArray(element.nodes) &&
-        element.nodes.length > 0
-      ) {
-        const firstNodeId = element.nodes[0];
-        const coords = coordsMap[firstNodeId];
+      if (element.type === 'way' && element.nodes?.length > 0) {
+        const coords = coordsMap[element.nodes[0]];
         if (coords) {
           return {
             ...element,
@@ -451,18 +537,23 @@ export class MapQueriesService {
         }
       }
 
-      // TODO: temporary hack – relation without nodes (multipolygon etc). Should derive coords via members.
+      if (element.type === 'relation') {
+        const wayId = element.members[0].ref;
+        if (wayId) {
+          const way = waysMap[wayId];
+          if (way?.nodes?.length) {
+            const coords = coordsMap[way.nodes[0]];
+            if (coords) {
+              return {
+                ...element,
+                latitude: coords.lat,
+                longitude: coords.lon,
+              };
+            }
+          }
+        }
+      }
 
-      // console.warn({
-      //   ...element,
-      // });
-
-      return {
-        ...element,
-        latitude: 0,
-        longitude: 0,
-      };
-      //TODO: temporary hack
       throw new Error('Failed to enrich element with coordinates');
     });
   }
