@@ -77,13 +77,15 @@ export const MapView = ({
           pathOptions={elementsColorOptions}
         >
           <Popup>
-            <div className="space-y-1">
-              {Object.entries(el.tags).map(([key, value]) => (
-                <div key={key}>
-                  <strong className="capitalize">{key}: </strong>
-                  <span>{value}</span>
-                </div>
-              ))}
+            <div className="p-2 bg-white max-w-[200px] space-y-2">
+              <ul className="text-xs text-gray-600 space-y-1">
+                {Object.entries(el.tags).map(([key, value]) => (
+                  <li key={key} className="flex justify-between">
+                    <span className="capitalize font-medium">{key}</span>
+                    <span className="ml-2 text-gray-700">{value}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </Popup>
         </CircleMarker>
