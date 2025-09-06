@@ -77,15 +77,32 @@ export const MapView = ({
           pathOptions={elementsColorOptions}
         >
           <Popup>
-            <div className="p-2 bg-white max-w-[200px] space-y-2">
-              <ul className="text-xs text-gray-600 space-y-1">
+            <div className="p-3 max-w-[500px] space-y-2">
+              <h3 className="font-semibold text-sm text-gray-800 flex items-center justify-between">
+                {el.type} {el.id}
+              </h3>
+              <div className="text-xs text-gray-500">
+                Tags: {Object.keys(el.tags).length}
+              </div>
+
+              <div className="text-xs text-gray-700 font-mono">
                 {Object.entries(el.tags).map(([key, value]) => (
-                  <li key={key} className="flex justify-between">
-                    <span className="capitalize font-medium">{key}</span>
-                    <span className="ml-2 text-gray-700">{value}</span>
-                  </li>
+                  <div
+                    key={key}
+                    className="grid grid-cols-[150px_1fr] border-b border-gray-200 py-0.5"
+                  >
+                    <span className="font-medium text-gray-800">{key}</span>
+                    <span className="text-gray-600">{value}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
+
+              <div className="text-xs text-gray-500 pt-2">
+                <span className="font-medium">Coordinates:</span>
+                <br />
+                {el.latitude} / {el.longitude}{' '}
+                <span className="text-gray-400">(lat/lon)</span>
+              </div>
             </div>
           </Popup>
         </CircleMarker>
