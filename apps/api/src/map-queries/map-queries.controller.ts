@@ -223,4 +223,40 @@ export class MapQueriesController {
 
     return markerWithTags;
   }
+
+  @Post('around-point')
+  @ApiOkResponse({
+    description: 'Generated Overpass QL query and fetch Overpass Data',
+    type: OverpassResponseDto,
+  })
+  async allElementsAroundPoint(
+    @Body() body: { latitude: number; longitude: number; radius?: number },
+  ): Promise<OverpassApiMapResponse> {
+    const { latitude, longitude, radius } = body;
+
+    // const bboxRadius = (radius ?? 500) * 2;
+
+    // const latDiff = bboxRadius / 111_320;
+    // const lonDiff =
+    //   bboxRadius / (111_320 * Math.cos((latitude * Math.PI) / 180));
+
+    // const latMin = latitude - latDiff;
+    // const latMax = latitude + latDiff;
+    // const lonMin = longitude - lonDiff;
+    // const lonMax = longitude + lonDiff;
+
+    const overpassQuery =
+      this.mapQueriesService.generateOverpassAllElementsQuery(
+        latitude,
+        longitude,
+        radius ?? 30,
+        // { latMin, lonMin, latMax, lonMax },
+      );
+
+    const data = await this.mapQueriesService.fetchOverpassData(
+      overpassQuery.query,
+    );
+
+    return data;
+  }
 }

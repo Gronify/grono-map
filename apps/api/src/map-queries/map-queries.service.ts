@@ -25,6 +25,7 @@ import {
   OverpassApiResponse,
 } from './dto/osm-marker.dto';
 import { RunnableSequence } from '@langchain/core/runnables';
+import { OverpassQuery } from './dto/overpass-all-elements-query.dto';
 @Injectable()
 export class MapQueriesService {
   private assistantChain;
@@ -553,8 +554,46 @@ export class MapQueriesService {
           }
         }
       }
+      console.error(element);
 
       throw new Error('Failed to enrich element with coordinates');
     });
+  }
+
+  generateOverpassAllElementsQuery(
+    latitude: number,
+    longitude: number,
+    radius: number,
+    // bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number },
+  ): OverpassQuery {
+    let status: 'success' | 'error' = 'success';
+    let query = '';
+
+    try {
+      query = `[timeout:10][out:json];(
+        node(around:${radius},${latitude},${longitude});
+        way(around:${radius},${latitude},${longitude});
+        relation(around:${radius},${latitude},${longitude});
+      );
+      out;
+    `.trim();
+      //   let queryBbox = `[timeout:10][out:json];
+      //   (
+      //     node(around:${radius},${latitude},${longitude});
+      //     way(around:${radius},${latitude},${longitude});
+      //   );
+      //   out tags geom(${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.latMax});
+      //   relation(around:${radius},${latitude},${longitude});
+      //   out geom(${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.latMax});
+      // `.trim();
+    } catch (err) {
+      console.error('Query generation error:', err);
+      status = 'error';
+    }
+
+    return {
+      query,
+      status,
+    };
   }
 }
