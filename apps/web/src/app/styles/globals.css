@@ -120,3 +120,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+.leaflet-popup-content-wrapper {
+    background-color: #fff !important;
+    opacity: 0.9;
+}
