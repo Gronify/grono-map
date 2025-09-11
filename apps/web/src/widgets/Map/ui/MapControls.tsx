@@ -79,7 +79,7 @@ export const MapControls = ({
         onClick={(e) => {
           e.stopPropagation();
           e.nativeEvent.stopPropagation();
-          setPickMode(true);
+          setPickMode((prev) => !prev);
         }}
       >
         {pickMode ? '!' : '?'}

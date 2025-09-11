@@ -15,9 +15,13 @@ import L, { LatLngExpression } from 'leaflet';
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { DraggableMarker } from './DraggableMarker';
 import { useMap, useMapEvent } from 'react-leaflet/hooks';
-import { OsmElement } from '@/pages/map-page/ui/api/map-queries';
+import {
+  OsmElement,
+  OverpassApiMapResponse,
+} from '@/pages/map-page/ui/api/map-queries';
 import { Button } from '../../../shared/components/ui/button';
 import { MapControls } from './MapControls';
+import { apiPost } from '../../../shared/api/client';
 
 const fillBlueOptions = {
   fillColor: 'blue',
@@ -37,6 +41,16 @@ interface Props {
   radius: number;
   elements: OsmElement[];
   onPositionChange: (pos: LatLngExpression) => void;
+}
+
+export interface AroundPointDto {
+  latitude: number;
+  longitude: number;
+  radius?: number;
+}
+
+export async function fetchAroundPoint(payload: AroundPointDto) {
+  return apiPost<OverpassApiMapResponse>('map-queries/around-point', payload);
 }
 
 export const MapView = ({
@@ -64,7 +78,6 @@ export const MapView = ({
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   if (!ready) return null;
-
   return (
     <MapContainer
       center={position}
@@ -83,9 +96,18 @@ export const MapView = ({
       <MapControls
         pickMode={pickMode}
         setPickMode={setPickMode}
-        onPick={(latlng, bbox) => {
-          console.log('Check:', latlng);
-          console.log('BBox:', bbox);
+        onPick={async (latlng, bbox) => {
+          try {
+            const data = await fetchAroundPoint({
+              latitude: latlng.lat,
+              longitude: latlng.lng,
+              radius: 50,
+            });
+
+            console.log('around-point:', data);
+          } catch (error) {
+            console.error('around-point:', error);
+          }
         }}
       />
 
