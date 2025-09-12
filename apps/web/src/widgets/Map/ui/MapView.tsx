@@ -16,6 +16,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { DraggableMarker } from './DraggableMarker';
 import { useMap, useMapEvent } from 'react-leaflet/hooks';
 import {
+  fetchAroundPoint,
   OsmElement,
   OverpassApiMapResponse,
 } from '@/pages/map-page/ui/api/map-queries';
@@ -41,16 +42,6 @@ interface Props {
   radius: number;
   elements: OsmElement[];
   onPositionChange: (pos: LatLngExpression) => void;
-}
-
-export interface AroundPointDto {
-  latitude: number;
-  longitude: number;
-  radius?: number;
-}
-
-export async function fetchAroundPoint(payload: AroundPointDto) {
-  return apiPost<OverpassApiMapResponse>('map-queries/around-point', payload);
 }
 
 export const MapView = ({
