@@ -9,7 +9,7 @@ type MapControlsProps = {
   onPick: (latlng: L.LatLng, bbox: BBox) => void;
 };
 
-interface BBox {
+export interface BBox {
   minLat: number;
   minLon: number;
   maxLat: number;

@@ -555,6 +555,11 @@ export class MapQueriesService {
         }
       }
       console.error(element);
+      return {
+        ...element,
+        latitude: 0,
+        longitude: 0,
+      };
 
       throw new Error('Failed to enrich element with coordinates');
     });

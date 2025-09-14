@@ -3,11 +3,14 @@
 import { LatLngExpression } from 'leaflet';
 import { MapView } from './MapView';
 import { OsmElement } from '@/pages/map-page/ui/api/map-queries';
+import { BBox } from './MapControls';
+
 type MapWidgetProps = {
   position: LatLngExpression;
   radius?: number;
   setPosition: (pos: LatLngExpression) => void;
   elements?: OsmElement[];
+  onPick: (latlng: L.LatLng, bbox: BBox) => void;
 };
 
 export const Map = ({
@@ -15,6 +18,7 @@ export const Map = ({
   radius = 1000,
   setPosition,
   elements = [],
+  onPick,
 }: MapWidgetProps) => {
   return (
     <MapView
@@ -22,6 +26,7 @@ export const Map = ({
       radius={radius}
       onPositionChange={setPosition}
       elements={elements}
+      onPick={onPick}
     />
   );
 };

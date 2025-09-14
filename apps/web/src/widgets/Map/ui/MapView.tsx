@@ -21,7 +21,7 @@ import {
   OverpassApiMapResponse,
 } from '@/pages/map-page/ui/api/map-queries';
 import { Button } from '../../../shared/components/ui/button';
-import { MapControls } from './MapControls';
+import { BBox, MapControls } from './MapControls';
 import { apiPost } from '../../../shared/api/client';
 
 const fillBlueOptions = {
@@ -42,6 +42,7 @@ interface Props {
   radius: number;
   elements: OsmElement[];
   onPositionChange: (pos: LatLngExpression) => void;
+  onPick: (latlng: L.LatLng, bbox: BBox) => void;
 }
 
 export const MapView = ({
@@ -49,6 +50,7 @@ export const MapView = ({
   radius,
   elements,
   onPositionChange,
+  onPick,
 }: Props) => {
   const circleRef = useRef<L.Circle | null>(null);
   const [pickMode, setPickMode] = useState(false);
@@ -87,59 +89,54 @@ export const MapView = ({
       <MapControls
         pickMode={pickMode}
         setPickMode={setPickMode}
-        onPick={async (latlng, bbox) => {
-          try {
-            const data = await fetchAroundPoint({
-              latitude: latlng.lat,
-              longitude: latlng.lng,
-              radius: 50,
-            });
-
-            console.log('around-point:', data);
-          } catch (error) {
-            console.error('around-point:', error);
-          }
-        }}
+        onPick={onPick}
       />
 
-      {elements.map((el) => (
-        <CircleMarker
-          key={el.id}
-          center={[el.latitude, el.longitude]}
-          radius={10}
-          pathOptions={elementsColorOptions}
-        >
-          <Popup>
-            <div className="p-3 max-w-[500px] space-y-2">
-              <h3 className="font-semibold text-sm text-gray-800 flex items-center justify-between">
-                {el.type} {el.id}
-              </h3>
-              <div className="text-xs text-gray-500">
-                Tags: {Object.keys(el.tags).length}
-              </div>
+      {elements.map((el) => {
+        if (!el.tags) return null;
+        return (
+          <CircleMarker
+            key={el.id}
+            center={[el.latitude, el.longitude]}
+            radius={10}
+            pathOptions={elementsColorOptions}
+          >
+            <Popup>
+              <div className="p-3 max-w-[500px] space-y-2">
+                <h3 className="font-semibold text-sm text-gray-800 flex items-center justify-between">
+                  {el.type} {el.id}
+                </h3>
+                <div className="text-xs text-gray-500">
+                  Tags: {el.tags ? Object.keys(el.tags).length : 0}
+                </div>
 
-              <div className="text-xs text-gray-700 font-mono">
-                {Object.entries(el.tags).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="grid grid-cols-[150px_1fr] border-b border-gray-200 py-0.5"
-                  >
-                    <span className="font-medium text-gray-800">{key}</span>
-                    <span className="text-gray-600">{value}</span>
-                  </div>
-                ))}
-              </div>
+                <div className="text-xs text-gray-700 font-mono">
+                  {el.tags
+                    ? Object.entries(el?.tags).map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="grid grid-cols-[150px_1fr] border-b border-gray-200 py-0.5"
+                        >
+                          <span className="font-medium text-gray-800">
+                            {key}
+                          </span>
+                          <span className="text-gray-600">{value}</span>
+                        </div>
+                      ))
+                    : ''}
+                </div>
 
-              <div className="text-xs text-gray-500 pt-2">
-                <span className="font-medium">Coordinates:</span>
-                <br />
-                {el.latitude} / {el.longitude}{' '}
-                <span className="text-gray-400">(lat/lon)</span>
+                <div className="text-xs text-gray-500 pt-2">
+                  <span className="font-medium">Coordinates:</span>
+                  <br />
+                  {el.latitude} / {el.longitude}{' '}
+                  <span className="text-gray-400">(lat/lon)</span>
+                </div>
               </div>
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
+            </Popup>
+          </CircleMarker>
+        );
+      })}
       <Circle
         center={circleRef.current?.getLatLng() ?? position}
         pathOptions={fillBlueOptions}
