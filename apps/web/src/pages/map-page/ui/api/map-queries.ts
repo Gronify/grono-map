@@ -37,3 +37,13 @@ export async function generateAndFetchOverpassQuery(
     payload,
   );
 }
+
+export interface AroundPointDto {
+  latitude: number;
+  longitude: number;
+  radius?: number;
+}
+
+export async function fetchAroundPoint(payload: AroundPointDto) {
+  return apiPost<OverpassApiMapResponse>('map-queries/around-point', payload);
+}
