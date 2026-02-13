@@ -11,6 +11,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { MapQueriesService } from './map-queries.service';
 import { CreateMapQueryDto } from './dto/create-map-query.dto';
@@ -49,6 +50,8 @@ import { OverpassApiMapResponse } from './dto/osm-marker.dto';
   version: '1',
 })
 export class MapQueriesController {
+  private readonly logger = new Logger(MapQueriesController.name);
+
   constructor(
     private readonly mapQueriesService: MapQueriesService,
     private readonly markersService: MarkersService,
@@ -81,6 +84,7 @@ export class MapQueriesController {
     if (limit > 50) {
       limit = 50;
     }
+    this.logger.debug(`GET map-queries findAll page=${page} limit=${limit}`);
 
     return infinityPagination(
       await this.mapQueriesService.findAllWithPagination({
@@ -146,12 +150,19 @@ export class MapQueriesController {
   async generateOverpassQuery(
     @Body() body: GenerateQueryDto,
   ): Promise<LlmQueryResultDto> {
-    return this.mapQueriesService.generateOverpassQuery(
+    this.logger.debug(
+      `POST ai/generate-overpass-query input="${body.input?.slice(0, 60)}..." lat=${body.latitude} lon=${body.longitude} radius=${body.radius ?? 100}`,
+    );
+    const result = await this.mapQueriesService.generateOverpassQuery(
       body.input,
       body.latitude,
       body.longitude,
       body.radius ? body.radius : 100,
     );
+    this.logger.debug(
+      `POST ai/generate-overpass-query done status=${result.status} duration=${result.duration}ms`,
+    );
+    return result;
   }
 
   @Post('ai/generate-and-fetch-overpass-query')
@@ -165,6 +176,9 @@ export class MapQueriesController {
   ): Promise<OverpassApiMapResponse> {
     const { input, latitude, longitude, radius } = body;
     const user: UserDto = request.user;
+    this.logger.debug(
+      `POST ai/generate-and-fetch input="${input?.slice(0, 60)}..." lat=${latitude} lon=${longitude} userId=${user?.id}`,
+    );
 
     const overpassQuery = await this.mapQueriesService.generateOverpassQuery(
       input,
@@ -172,8 +186,14 @@ export class MapQueriesController {
       longitude,
       radius ? radius : 100,
     );
+    this.logger.debug(
+      `POST ai/generate-and-fetch LLM done, fetching Overpass data (query length=${overpassQuery.llmResponse?.length})`,
+    );
     const data = await this.mapQueriesService.fetchOverpassData(
       overpassQuery.llmResponse,
+    );
+    this.logger.debug(
+      `POST ai/generate-and-fetch Overpass elements=${data.elements?.length}, saving map query`,
     );
 
     await this.mapQueriesService.create({
@@ -186,6 +206,9 @@ export class MapQueriesController {
       duration: overpassQuery.duration,
       user,
     });
+    this.logger.debug(
+      `POST ai/generate-and-fetch completed, returning ${data.elements?.length} elements`,
+    );
     return data;
   }
 
@@ -197,6 +220,7 @@ export class MapQueriesController {
   })
   async createFromOsm(@Body() body: CreateFromOsmDto) {
     const { type, id } = body;
+    this.logger.debug(`POST create-from-osm type=${type} id=${id}`);
 
     const osmElement = await this.mapQueriesService.fetchOsmElement(type, id);
 
@@ -220,7 +244,9 @@ export class MapQueriesController {
     await Promise.all(tagPromises);
 
     const markerWithTags = await this.markersService.findById(createdMarker.id);
-
+    this.logger.debug(
+      `POST create-from-osm done markerId=${createdMarker.id} tags=${Object.keys(osmElement.tags).length}`,
+    );
     return markerWithTags;
   }
 
@@ -233,6 +259,9 @@ export class MapQueriesController {
     @Body() body: { latitude: number; longitude: number; radius?: number },
   ): Promise<OverpassApiMapResponse> {
     const { latitude, longitude, radius } = body;
+    this.logger.debug(
+      `POST around-point lat=${latitude} lon=${longitude} radius=${radius ?? 30}`,
+    );
 
     // const bboxRadius = (radius ?? 500) * 2;
 
@@ -256,7 +285,9 @@ export class MapQueriesController {
     const data = await this.mapQueriesService.fetchOverpassData(
       overpassQuery.query,
     );
-
+    this.logger.debug(
+      `POST around-point done elements=${data.elements?.length}`,
+    );
     return data;
   }
 }

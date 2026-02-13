@@ -12,7 +12,8 @@
     "test:e2e": "turbo run test:e2e",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "migration:run:api": "turbo run migration:run --filter=api"
+    "migration:run:api": "turbo run migration:run --filter=api",
+    "seed:api": "npm run seed:run:relational -w api"
   },
   "devDependencies": {
     "husky": "9.1.7",

@@ -22,7 +22,7 @@ export default registerAs<MapQueryConfig>('mapQuery', () => {
     apiKey: process.env.AI_API_KEY,
     model: process.env.AI_MODEL_NAME
       ? process.env.AI_MODEL_NAME
-      : 'gemini-2.0-flash-lite',
+      : 'gemini-2.5-flash',
     temperature: process.env.AI_TEMPERATURE
       ? parseFloat(process.env.AI_TEMPERATURE)
       : 0.1,

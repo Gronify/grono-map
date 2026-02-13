@@ -1,22 +1,25 @@
-FROM node:22.16.0-alpine
-
+# Build context: apps/api (e.g. docker compose build with context: ./apps/api)
+FROM node:22-alpine
 RUN apk add --no-cache bash
-RUN npm i -g @nestjs/cli typescript ts-node
+WORKDIR /app
 
-COPY package*.json /tmp/app/
-RUN cd /tmp/app && npm install
+# Install dependencies first for better layer caching
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-COPY . /usr/src/app
-RUN cp -a /tmp/app/node_modules /usr/src/app
-COPY ./wait-for-it.sh /opt/wait-for-it.sh
-RUN chmod +x /opt/wait-for-it.sh
-COPY ./startup.relational.dev.sh /opt/startup.relational.dev.sh
-RUN chmod +x /opt/startup.relational.dev.sh
-RUN sed -i 's/\r//g' /opt/wait-for-it.sh
-RUN sed -i 's/\r//g' /opt/startup.relational.dev.sh
-
-WORKDIR /usr/src/app
-RUN if [ ! -f .env ]; then cp env-example-relational .env; fi
+# Copy application and build
+COPY . .
 RUN npm run build
+
+# Startup scripts: wait for postgres, run migrations, seed, then start
+COPY wait-for-it.sh startup.relational.dev.sh /opt/
+RUN chmod +x /opt/wait-for-it.sh /opt/startup.relational.dev.sh && \
+    sed -i 's/\r//g' /opt/wait-for-it.sh /opt/startup.relational.dev.sh
+
+# Optional: ensure .env exists for container (compose typically injects env)
+RUN if [ ! -f .env ]; then cp env-example-relational .env; fi
+
+ENV NODE_ENV=development
+EXPOSE 3001
 
 CMD ["/opt/startup.relational.dev.sh"]

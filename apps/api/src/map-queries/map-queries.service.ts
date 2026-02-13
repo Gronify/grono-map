@@ -6,6 +6,7 @@ import {
   Injectable,
   HttpStatus,
   UnprocessableEntityException,
+  Logger,
 } from '@nestjs/common';
 import { CreateMapQueryDto } from './dto/create-map-query.dto';
 import { UpdateMapQueryDto } from './dto/update-map-query.dto';
@@ -28,6 +29,7 @@ import { RunnableSequence } from '@langchain/core/runnables';
 import { OverpassQuery } from './dto/overpass-all-elements-query.dto';
 @Injectable()
 export class MapQueriesService {
+  private readonly logger = new Logger(MapQueriesService.name);
   private assistantChain;
   constructor(
     private readonly userService: UsersService,
@@ -66,9 +68,13 @@ export class MapQueriesService {
     ]);
 
     this.assistantChain = RunnableSequence.from([prompt, this.model]);
+    this.logger.debug('Assistant chain initialized (prompt + LLM)');
   }
 
   async create(createMapQueryDto: CreateMapQueryDto) {
+    this.logger.debug(
+      `create() called with inputText=${createMapQueryDto.inputText?.slice(0, 50)}..., lat=${createMapQueryDto.latitude}, lon=${createMapQueryDto.longitude}`,
+    );
     // Do not remove comment below.
     // <creating-property />
 
@@ -91,7 +97,7 @@ export class MapQueriesService {
       user = null;
     }
 
-    return this.mapQueryRepository.create({
+    const created = await this.mapQueryRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
       longitude: createMapQueryDto.longitude,
@@ -103,6 +109,8 @@ export class MapQueriesService {
       duration: createMapQueryDto.duration,
       user,
     });
+    this.logger.debug(`create() completed, id=${created?.id}`);
+    return created;
   }
 
   findAllWithPagination({
@@ -119,6 +127,7 @@ export class MapQueriesService {
   }
 
   findById(id: MapQuery['id']) {
+    this.logger.debug(`findById(${id})`);
     return this.mapQueryRepository.findById(id);
   }
 
@@ -131,6 +140,7 @@ export class MapQueriesService {
 
     updateMapQueryDto: UpdateMapQueryDto,
   ) {
+    this.logger.debug(`update(${id}) called`);
     // Do not remove comment below.
     // <updating-property />
 
@@ -168,6 +178,7 @@ export class MapQueriesService {
   }
 
   remove(id: MapQuery['id']) {
+    this.logger.debug(`remove(${id})`);
     return this.mapQueryRepository.remove(id);
   }
 
@@ -177,6 +188,9 @@ export class MapQueriesService {
     longitude: number,
     radius: number,
   ): Promise<LlmQueryResultDto> {
+    this.logger.debug(
+      `generateOverpassQuery input="${input?.slice(0, 80)}..." lat=${latitude} lon=${longitude} radius=${radius}`,
+    );
     const start = Date.now();
     let content = '';
     let status: 'success' | 'error' = 'success';
@@ -188,6 +202,9 @@ export class MapQueriesService {
         longitude,
         radius,
       });
+      this.logger.debug(
+        `generateOverpassQuery LLM response type=${typeof response}, content type=${typeof (response as any)?.content}`,
+      );
 
       if (typeof response === 'string') {
         content = response;
@@ -205,17 +222,34 @@ export class MapQueriesService {
       } else {
         content = '';
         status = 'error';
+        this.logger.warn(
+          'generateOverpassQuery: unexpected response shape, setting status=error',
+        );
       }
     } catch (error) {
-      console.error('LLM query generation failed:', error);
+      this.logger.error(
+        'LLM query generation failed',
+        error instanceof Error ? error.stack : String(error),
+      );
       content = '';
       status = 'error';
     }
 
     const duration = Date.now() - start;
+    const llmResponse = content.trim();
+    this.logger.debug(
+      `generateOverpassQuery completed in ${duration}ms status=${status} responseLength=${llmResponse.length}`,
+    );
+    if (llmResponse) {
+      this.logger.debug(
+        `generateOverpassQuery LLM generated Overpass query: ${llmResponse}`,
+      );
+    } else {
+      this.logger.warn('generateOverpassQuery: LLM returned empty query');
+    }
 
     return {
-      llmResponse: content.trim(),
+      llmResponse,
       llmModel: this.model.model,
       duration,
       status,
@@ -228,7 +262,12 @@ export class MapQueriesService {
     const url =
       'https://overpass-api.de/api/interpreter?data=' +
       encodeURIComponent(overpassQuery);
-    console.log(overpassQuery);
+    this.logger.debug(
+      `fetchOverpassData sending Overpass query: ${overpassQuery}`,
+    );
+    this.logger.debug(
+      `fetchOverpassData query length=${overpassQuery.length}, url length=${url.length}`,
+    );
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -236,17 +275,35 @@ export class MapQueriesService {
           Accept: 'application/json',
         },
       });
+      this.logger.debug(
+        `fetchOverpassData response status=${response.status} ok=${response.ok}`,
+      );
 
       if (!response.ok) {
+        const hint =
+          response.status === 504
+            ? ' (504 = timeout: query may be too heavy or server busy; try smaller radius or simpler query)'
+            : response.status === 400
+              ? ' (400 = bad request: query syntax may be invalid)'
+              : '';
+        this.logger.warn(
+          `fetchOverpassData Overpass API error ${response.status} ${response.statusText}${hint}. Query was: ${overpassQuery}`,
+        );
         throw new Error(
           `Overpass API error: ${response.status} ${response.statusText}`,
         );
       }
 
       const data: OverpassApiResponse = await response.json();
+      this.logger.debug(
+        `fetchOverpassData raw elements count=${data.elements?.length ?? 0}`,
+      );
 
       const enrichedElements = await this.enrichOverpassElementsBatch(
         data.elements,
+      );
+      this.logger.debug(
+        `fetchOverpassData enriched elements count=${enrichedElements.length}`,
       );
 
       const responseData: OverpassApiMapResponse = {
@@ -255,7 +312,12 @@ export class MapQueriesService {
       };
       return responseData;
     } catch (error) {
-      console.error('Overpass API request failed:', error);
+      this.logger.error(
+        `Overpass API request failed. Query was: ${overpassQuery}. Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      if (error instanceof Error && error.stack) {
+        this.logger.debug(error.stack);
+      }
       throw new Error('Failed to fetch data from Overpass API');
     }
   }
@@ -264,6 +326,7 @@ export class MapQueriesService {
     type: 'node' | 'way' | 'relation',
     id: number,
   ): Promise<OsmElement> {
+    this.logger.debug(`fetchOsmElement type=${type} id=${id}`);
     const query = `[out:json];${type}(${id});out;`;
     const url =
       'https://overpass-api.de/api/interpreter?data=' +
@@ -274,10 +337,16 @@ export class MapQueriesService {
         Accept: 'application/json',
       },
     });
-
+    if (!response.ok) {
+      this.logger.warn(
+        `fetchOsmElement ${type}/${id} response not ok: ${response.status}`,
+      );
+    }
     const data: OverpassApiNodeResponse = await response.json();
-
     const element = data.elements[0];
+    if (!element) {
+      this.logger.warn(`fetchOsmElement ${type}/${id} no element in response`);
+    }
 
     return {
       type: element.type,
@@ -313,7 +382,10 @@ export class MapQueriesService {
           longitude: firstNode.longitude,
         };
       } catch (error) {
-        console.error('Failed to fetch first node coordinates:', error);
+        this.logger.error(
+          `enrichElementWithCoords: failed to fetch node ${firstNodeId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
         throw new Error('Failed to enrich element with coordinates');
       }
     }
@@ -345,9 +417,14 @@ export class MapQueriesService {
   async fetchManyNodes(
     nodeIds: number[],
   ): Promise<Record<number, { lat: number; lon: number }>> {
-    if (nodeIds.length === 0) return {};
-
+    if (nodeIds.length === 0) {
+      this.logger.debug('fetchManyNodes: no node ids, skipping');
+      return {};
+    }
     const chunks = this.chunkArray(nodeIds, 250);
+    this.logger.debug(
+      `fetchManyNodes: ${nodeIds.length} unique nodes in ${chunks.length} chunk(s)`,
+    );
     const coordsMap: Record<number, { lat: number; lon: number }> = {};
 
     for (let index = 0; index < chunks.length; index++) {
@@ -381,39 +458,45 @@ export class MapQueriesService {
           data.elements.forEach((el) => {
             coordsMap[el.id] = { lat: el.lat, lon: el.lon };
           });
-
+          this.logger.debug(
+            `fetchManyNodes chunk ${index + 1}/${chunks.length} got ${data.elements.length} nodes`,
+          );
           break;
         } catch (error: any) {
           attempt++;
           if (attempt > maxRetries) {
-            console.error(
-              `Failed after ${maxRetries} retries for chunk:`,
-              chunk,
+            this.logger.error(
+              `fetchManyNodes: failed after ${maxRetries} retries for chunk`,
+              chunk?.slice(0, 5),
             );
             throw error;
           }
-
           const delay = 2000 * attempt;
-          console.warn(
-            `Overpass API request failed for chunk ${index + 1}/${chunks.length}
-             (attempt ${attempt}/${maxRetries}): ${error}. Retrying in ${delay}ms...`,
+          this.logger.warn(
+            `fetchManyNodes chunk ${index + 1}/${chunks.length} attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms: ${error?.message ?? error}`,
           );
           await this.sleep(delay);
         }
       }
-
       await this.sleep(2000);
     }
-
+    this.logger.debug(
+      `fetchManyNodes: resolved ${Object.keys(coordsMap).length} coordinates`,
+    );
     return coordsMap;
   }
 
   async fetchManyWays(
     wayIds: number[],
   ): Promise<Record<number, { id: number; nodes: number[] }>> {
-    if (wayIds.length === 0) return {};
-
+    if (wayIds.length === 0) {
+      this.logger.debug('fetchManyWays: no way ids, skipping');
+      return {};
+    }
     const chunks = this.chunkArray(wayIds, 250);
+    this.logger.debug(
+      `fetchManyWays: ${wayIds.length} ways in ${chunks.length} chunk(s)`,
+    );
     const waysMap: Record<number, { id: number; nodes: number[] }> = {};
 
     for (let index = 0; index < chunks.length; index++) {
@@ -451,36 +534,40 @@ export class MapQueriesService {
               waysMap[el.id] = { id: el.id, nodes: el.nodes };
             }
           });
-
+          this.logger.debug(
+            `fetchManyWays chunk ${index + 1}/${chunks.length} got ${Object.keys(waysMap).length} ways`,
+          );
           break;
         } catch (error: any) {
           attempt++;
           if (attempt > maxRetries) {
-            console.error(
-              `Failed after ${maxRetries} retries for way chunk:`,
-              chunk,
+            this.logger.error(
+              `fetchManyWays: failed after ${maxRetries} retries for chunk`,
+              chunk?.slice(0, 5),
             );
             throw error;
           }
-
           const delay = 2000 * attempt;
-          console.warn(
-            `Overpass API request failed for way chunk ${index + 1}/${chunks.length}
-           (attempt ${attempt}/${maxRetries}): ${error}. Retrying in ${delay}ms...`,
+          this.logger.warn(
+            `fetchManyWays chunk ${index + 1}/${chunks.length} attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms: ${error?.message ?? error}`,
           );
           await this.sleep(delay);
         }
       }
-
       await this.sleep(2000);
     }
-
+    this.logger.debug(
+      `fetchManyWays: resolved ${Object.keys(waysMap).length} ways`,
+    );
     return waysMap;
   }
 
   async enrichOverpassElementsBatch(
     elements: OsmElementApi[],
   ): Promise<OsmElement[]> {
+    this.logger.debug(
+      `enrichOverpassElementsBatch: ${elements.length} elements`,
+    );
     const nodeIdsToFetch: number[] = [];
     const wayIdsToFetch: number[] = [];
 
@@ -504,6 +591,9 @@ export class MapQueriesService {
     //    then collect the first node from each way.
     let waysMap: Record<number, { id: number; nodes: number[] }> = {};
     if (wayIdsToFetch.length > 0) {
+      this.logger.debug(
+        `enrichOverpassElementsBatch: fetching ${wayIdsToFetch.length} way ids for relations`,
+      );
       waysMap = await this.fetchManyWays([...new Set(wayIdsToFetch)]);
       for (const wayId of Object.keys(waysMap).map(Number)) {
         const way = waysMap[wayId];
@@ -515,10 +605,13 @@ export class MapQueriesService {
 
     // 3. Fetch coordinates for all collected node IDs in one batch.
     const uniqueNodeIds = [...new Set(nodeIdsToFetch)];
+    this.logger.debug(
+      `enrichOverpassElementsBatch: fetching ${uniqueNodeIds.length} unique node coords`,
+    );
     const coordsMap = await this.fetchManyNodes(uniqueNodeIds);
 
     // 4. Enrich each element with coordinates.
-    return elements.map((element) => {
+    const result = elements.map((element) => {
       if (element.type === 'node') {
         return {
           ...element,
@@ -554,15 +647,20 @@ export class MapQueriesService {
           }
         }
       }
-      console.error(element);
+      this.logger.warn(
+        'enrichOverpassElementsBatch: could not resolve coords for element',
+        { type: element.type, id: element.id },
+      );
       return {
         ...element,
         latitude: 0,
         longitude: 0,
       };
-
-      throw new Error('Failed to enrich element with coordinates');
     });
+    this.logger.debug(
+      `enrichOverpassElementsBatch: enriched ${result.length} elements`,
+    );
+    return result;
   }
 
   generateOverpassAllElementsQuery(
@@ -571,6 +669,9 @@ export class MapQueriesService {
     radius: number,
     // bbox: { latMin: number; lonMin: number; latMax: number; lonMax: number },
   ): OverpassQuery {
+    this.logger.debug(
+      `generateOverpassAllElementsQuery lat=${latitude} lon=${longitude} radius=${radius}`,
+    );
     let status: 'success' | 'error' = 'success';
     let query = '';
 
@@ -592,10 +693,15 @@ export class MapQueriesService {
       //   out geom(${bbox.latMin},${bbox.lonMin},${bbox.latMax},${bbox.latMax});
       // `.trim();
     } catch (err) {
-      console.error('Query generation error:', err);
+      this.logger.error(
+        'generateOverpassAllElementsQuery error',
+        err instanceof Error ? err.stack : String(err),
+      );
       status = 'error';
     }
-
+    this.logger.debug(
+      `generateOverpassAllElementsQuery status=${status} query length=${query.length}`,
+    );
     return {
       query,
       status,
